@@ -1,8 +1,9 @@
 // Game loop, state machine and round lifecycle. No three.js imports in game/.
 
+import { catchItems } from './collision';
 import { createItemIdMinter } from './items';
 import { BASKET_MAX_SPEED, clampBasketX } from './playArea';
-import { Spawner, advanceItems } from './spawner';
+import { Spawner, moveItems, removeExitedItems } from './spawner';
 import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
 
 // A stalled or backgrounded tab can deliver one huge frame gap; never simulate more than this at once.
@@ -155,8 +156,13 @@ export class Game {
       this.current.basketX = clampBasketX(this.current.basketX + direction * BASKET_MAX_SPEED * dt);
     }
 
-    // Move existing items before spawning: a new item is already placed for how late in the frame it spawned.
-    advanceItems(this.current, dt);
+    // Order matters:
+    // - move before spawning, since a new item is already placed for how late in the frame it spawned;
+    // - catch before removing exits, so a sweep through the mouth and out of the bottom is a catch.
+    // Caught items leave the list this frame, so their meshes go in the same render. Effects: NMH-10.
+    moveItems(this.current, dt);
+    catchItems(this.current, dt);
+    removeExitedItems(this.current);
     this.spawner.update(this.current, dt);
 
     this.current.timeRemaining = Math.max(0, this.current.timeRemaining - dt);

@@ -8,7 +8,8 @@ import {
   LANES,
   Spawner,
   WARM_UP,
-  advanceItems,
+  moveItems,
+  removeExitedItems,
   fallSpeed,
   weightedPick,
 } from './spawner';
@@ -40,7 +41,8 @@ function simulate(seconds: number, fps: number, seed = 1) {
   const spawned = new Map<number, string>();
   // Whole frames, so float drift in a running total can't add or drop one.
   for (let frame = 0; frame < Math.round(seconds * fps); frame++) {
-    advanceItems(state, dt);
+    moveItems(state, dt);
+    removeExitedItems(state);
     spawner.update(state, dt);
     for (const item of state.items) spawned.set(item.id, item.type);
   }
@@ -139,18 +141,26 @@ describe('weightedPick', () => {
   });
 });
 
-describe('advanceItems', () => {
+describe('moveItems and removeExitedItems', () => {
   it('falls by speed x dt and removes items once fully below the bottom edge', () => {
     const state = playingState();
     state.items.push({ id: 1, type: 'tomato', x: 0, y: 0, speed: 2, resolved: false });
-    advanceItems(state, 0.5);
+    moveItems(state, 0.5);
     expect(state.items[0].y).toBe(-1);
 
     state.items[0].y = PLAY_AREA.bottom - 0.39; // top edge still 0.01 inside
-    expect(advanceItems(state, 0)).toEqual([]);
-    const exited = advanceItems(state, 0.01);
+    expect(removeExitedItems(state)).toEqual([]);
+    moveItems(state, 0.01);
+    const exited = removeExitedItems(state);
     expect(exited.map((item) => item.id)).toEqual([1]);
     expect(state.items).toHaveLength(0);
+  });
+
+  it('moves without removing, so collision can run in between', () => {
+    const state = playingState();
+    state.items.push({ id: 1, type: 'tomato', x: 0, y: PLAY_AREA.bottom, speed: 2, resolved: false });
+    moveItems(state, 1);
+    expect(state.items).toHaveLength(1);
   });
 });
 
