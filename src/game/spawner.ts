@@ -88,12 +88,17 @@ export class Spawner {
   }
 }
 
-// Moves every item down by speed x dt and drops the ones that have fully left the bottom.
-// Returns the dropped items so scoring (NMH-10) can charge a life for missed fresh produce.
-export function advanceItems(state: GameState, dt: number): FallingItem[] {
+// Moves every item down by speed x dt.
+export function moveItems(state: GameState, dt: number): void {
+  for (const item of state.items) item.y -= item.speed * dt;
+}
+
+// Drops the items that have fully left the bottom and returns them, so scoring (NMH-10) can charge a
+// life for missed fresh produce. Run after collision, so a frame that sweeps an item through the
+// mouth and out of the bottom counts it as caught, not missed.
+export function removeExitedItems(state: GameState): FallingItem[] {
   const exited: FallingItem[] = [];
   state.items = state.items.filter((item) => {
-    item.y -= item.speed * dt;
     const gone = item.y + ITEM_DEFINITIONS[item.type].height / 2 < PLAY_AREA.bottom;
     if (gone) exited.push(item);
     return !gone;
