@@ -147,7 +147,9 @@ describe('catchItems', () => {
   it.each([30, 60, 144])('lets a drop beside the basket fall through at %i fps', (fps) => {
     const { caught, falling } = drop(BASKET_WIDTH, 8, 10.4, 1 / fps);
     expect(caught).toEqual([]);
-    expect(falling.resolved).toBe(false);
+    // Resolved by leaving the bottom (as a miss), never by the basket.
+    expect(falling.y).toBeLessThan(-8);
+    expect(falling.resolved).toBe(true);
   });
 });
 
