@@ -36,9 +36,13 @@ function fakeScheduler() {
   };
 }
 
+// Spawns only hazards in the far-left lane, away from the centred basket: misses cost nothing,
+// so these loop tests can only end on time.
+const hazardsOnly = () => 0;
+
 function setup() {
   const clock = fakeScheduler();
-  const game = new Game({ scheduler: clock.scheduler });
+  const game = new Game({ scheduler: clock.scheduler, random: hazardsOnly });
   clock.frame(16); // first frame only primes the clock
   return { clock, game };
 }
@@ -120,7 +124,7 @@ describe('State machine', () => {
   it('ends the round once when time runs out', () => {
     const statuses: string[] = [];
     const clock = fakeScheduler();
-    const game = new Game({ scheduler: clock.scheduler, onStatusChange: (s) => statuses.push(s) });
+    const game = new Game({ scheduler: clock.scheduler, random: hazardsOnly, onStatusChange: (s) => statuses.push(s) });
     clock.frame(16);
     game.start();
     clock.frames(Math.ceil((ROUND_DURATION * 1000) / MAX_STEP_MS) + 10, MAX_STEP_MS);

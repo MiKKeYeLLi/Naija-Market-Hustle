@@ -1,7 +1,7 @@
 // Cash and lives rules (NMH-10). Every change to cash or lives goes through applyEffect, which clamps.
 
 import { ITEM_DEFINITIONS } from './items';
-import { MAX_LIVES, type FallingItem, type GameState } from './state';
+import { MAX_LIVES, type EndReason, type FallingItem, type GameState } from './state';
 
 export interface Effect {
   cash?: number;
@@ -30,4 +30,13 @@ export function applyCatch(state: GameState, item: FallingItem): Required<Effect
 export function applyMiss(state: GameState, item: FallingItem): Required<Effect> {
   const missedFresh = ITEM_DEFINITIONS[item.type].kind === 'fresh';
   return applyEffect(state, { lives: missedFresh ? -1 : 0 });
+}
+
+// Why the round should end now, or null to keep playing. Cash is deliberately not a condition:
+// reaching ₦0 does not end the round. When the last life and the timer run out in the same frame,
+// one reason wins: out of lives, since the player lost before time could save them.
+export function roundEndReason(state: GameState): EndReason | null {
+  if (state.lives <= 0) return 'lives';
+  if (state.timeRemaining <= 0) return 'time';
+  return null;
 }
