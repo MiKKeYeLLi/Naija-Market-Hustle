@@ -143,10 +143,11 @@ describe('phase changes in the game loop', () => {
     const scheduler: FrameScheduler = { now: () => time, request: (cb) => ((queued = cb), 1), cancel: () => (queued = null) };
     const changes: Array<[Phase, Phase, number]> = [];
     let game: Game;
-    // random 0: only hazards in the far-left lane, so lives never run out and the round plays to time.
+    // random 0.5: always fresh, always the centre lane under the basket, so every item is caught,
+    // lives never run out and the round plays to time.
     game = new Game({
       scheduler,
-      random: () => 0,
+      random: () => 0.5,
       onPhaseChange: (phase, previous) => changes.push([phase, previous, +game.state.timeRemaining.toFixed(2)]),
     });
     const frame = (ms: number) => {

@@ -1,7 +1,7 @@
 // Weighted spawning, falling movement and the difficulty settings (NMH-08, NMH-12).
 
 import { FRESH_ITEMS, HAZARD_ITEMS, ITEM_DEFINITIONS, type ItemDefinition } from './items';
-import { BASKET_MOUTH, BASKET_WIDTH, PLAY_AREA } from './playArea';
+import { BASKET_MAX_SPEED, BASKET_MOUTH, BASKET_WIDTH, PLAY_AREA } from './playArea';
 import type { FallingItem, GameState } from './state';
 
 export interface DifficultySettings {
@@ -82,8 +82,29 @@ export function weightedPick(items: readonly ItemDefinition[], random: () => num
   return items[items.length - 1];
 }
 
+// Fairness guards (NMH-13).
+export const MAX_HAZARD_STREAK = 2;
+// Random lane picks to try before falling back to the nearest reachable lane.
+export const LANE_RETRIES = 3;
+
+// When an item spawned at `spawnedAt` (spawner clock) reaches the basket mouth.
+export function arrivalTime(spawnedAt: number, startY: number, speed: number): number {
+  return spawnedAt + (startY - BASKET_MOUTH.centerY) / speed;
+}
+
+// Can the basket, at keyboard speed (the slower control), get from one lane to the other between
+// the two arrivals? Pointer input can jump instantly, so this is the worst case. The gap is taken
+// either way round, in case a faster later item overtakes a slower earlier one.
+export function isReachable(fromX: number, fromArrival: number, toX: number, toArrival: number): boolean {
+  return Math.abs(toX - fromX) <= BASKET_MAX_SPEED * Math.abs(toArrival - fromArrival) + 1e-9;
+}
+
 export class Spawner {
   private untilNextSpawn = FIRST_SPAWN_DELAY;
+  // Seconds of play this round; spawn and arrival times are measured on it.
+  private clock = 0;
+  private previous: { x: number; arrival: number } | null = null;
+  private hazardStreak = 0;
 
   constructor(
     private readonly mintId: () => number,
@@ -92,11 +113,15 @@ export class Spawner {
 
   reset(): void {
     this.untilNextSpawn = FIRST_SPAWN_DELAY;
+    this.clock = 0;
+    this.previous = null;
+    this.hazardStreak = 0;
   }
 
   // Counts down in seconds, so the spawn rate is the same at any frame rate.
   update(state: GameState, dt: number): void {
     const settings = difficultyAt(state.timeRemaining);
+    this.clock += dt;
     this.untilNextSpawn -= dt;
     while (this.untilNextSpawn <= 0) {
       // A spawn that fell due partway through this frame has already been falling for `late` seconds.
@@ -107,19 +132,49 @@ export class Spawner {
   }
 
   private spawn(settings: DifficultySettings, late: number): FallingItem {
-    const pool = this.random() < settings.hazardShare ? HAZARD_ITEMS : FRESH_ITEMS;
-    const definition = weightedPick(pool, this.random);
-    const lane = Math.min(LANE_COUNT - 1, Math.floor(this.random() * LANE_COUNT));
+    // After two hazards in a row the next item is always fresh.
+    const hazard = this.hazardStreak < MAX_HAZARD_STREAK && this.random() < settings.hazardShare;
+    const definition = weightedPick(hazard ? HAZARD_ITEMS : FRESH_ITEMS, this.random);
+    this.hazardStreak = hazard ? this.hazardStreak + 1 : 0;
+
     const speed = fallSpeed(settings);
+    // Bottom edge starts at the top of the play area: just out of view.
+    const startY = PLAY_AREA.top + definition.height / 2;
+    const arrival = arrivalTime(this.clock - late, startY, speed);
+    const x = this.pickLane(arrival);
+    this.previous = { x, arrival };
+
     return {
       id: this.mintId(),
       type: definition.id,
-      x: LANES[lane],
-      // Bottom edge starts at the top of the play area: just out of view.
-      y: PLAY_AREA.top + definition.height / 2 - speed * late,
+      x,
+      y: startY - speed * late,
       speed,
       resolved: false,
     };
+  }
+
+  private randomLane(): number {
+    return LANES[Math.min(LANE_COUNT - 1, Math.floor(this.random() * LANE_COUNT))];
+  }
+
+  // A random lane the basket can reach from the previous item's lane in time. Retries a few random
+  // picks, then takes the reachable lane nearest the last pick. The previous lane itself is always
+  // reachable, so a fallback always exists.
+  private pickLane(arrival: number): number {
+    const previous = this.previous;
+    let pick = this.randomLane();
+    if (!previous) return pick;
+    const reachable = (x: number) => isReachable(previous.x, previous.arrival, x, arrival);
+
+    for (let attempt = 1; attempt < LANE_RETRIES && !reachable(pick); attempt++) pick = this.randomLane();
+    if (reachable(pick)) return pick;
+
+    let nearest = previous.x;
+    for (const lane of LANES) {
+      if (reachable(lane) && Math.abs(lane - pick) < Math.abs(nearest - pick)) nearest = lane;
+    }
+    return nearest;
   }
 }
 
