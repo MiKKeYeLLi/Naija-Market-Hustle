@@ -3,6 +3,7 @@
 import { catchItems } from './collision';
 import { createItemIdMinter } from './items';
 import { BASKET_MAX_SPEED, clampBasketX } from './playArea';
+import { applyCatch, applyMiss } from './rules';
 import { Spawner, moveItems, removeExitedItems } from './spawner';
 import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
 
@@ -159,10 +160,10 @@ export class Game {
     // Order matters:
     // - move before spawning, since a new item is already placed for how late in the frame it spawned;
     // - catch before removing exits, so a sweep through the mouth and out of the bottom is a catch.
-    // Caught items leave the list this frame, so their meshes go in the same render. Effects: NMH-10.
+    // Caught items leave the list this frame, so their meshes go in the same render.
     moveItems(this.current, dt);
-    catchItems(this.current, dt);
-    removeExitedItems(this.current);
+    for (const item of catchItems(this.current, dt)) applyCatch(this.current, item);
+    for (const item of removeExitedItems(this.current)) applyMiss(this.current, item);
     this.spawner.update(this.current, dt);
 
     this.current.timeRemaining = Math.max(0, this.current.timeRemaining - dt);

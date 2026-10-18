@@ -93,14 +93,17 @@ export function moveItems(state: GameState, dt: number): void {
   for (const item of state.items) item.y -= item.speed * dt;
 }
 
-// Drops the items that have fully left the bottom and returns them, so scoring (NMH-10) can charge a
-// life for missed fresh produce. Run after collision, so a frame that sweeps an item through the
-// mouth and out of the bottom counts it as caught, not missed.
+// Drops the items that have fully left the bottom and returns them, marked resolved like catches, so
+// scoring can charge a life for missed fresh produce exactly once. Run after collision, so a frame
+// that sweeps an item through the mouth and out of the bottom counts it as caught, not missed.
 export function removeExitedItems(state: GameState): FallingItem[] {
   const exited: FallingItem[] = [];
   state.items = state.items.filter((item) => {
     const gone = item.y + ITEM_DEFINITIONS[item.type].height / 2 < PLAY_AREA.bottom;
-    if (gone) exited.push(item);
+    if (gone && !item.resolved) {
+      item.resolved = true;
+      exited.push(item);
+    }
     return !gone;
   });
   return exited;
