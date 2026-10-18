@@ -29,3 +29,44 @@ body {
   inset: 0;
   pointer-events: none;
 }
+
+/* Phase banner (NMH-12): centred in the upper third, clear of the HUD strip and the basket. */
+.phase-banner {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  padding: 0.5em 1.1em;
+  border-radius: 999px;
+  background: #3b1f0e;
+  color: #fff4d6;
+  font: 800 clamp(1.4rem, 7vw, 2.4rem) / 1.1 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 0.3em 0 #a0522d;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 180ms ease-out,
+    transform 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.phase-banner[data-phase='marketMadness'] {
+  background: #b3261e;
+  box-shadow: 0 0.3em 0 #6d1510;
+}
+
+.phase-banner.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phase-banner {
+    transform: translate(-50%, -50%);
+    transition: opacity 180ms linear;
+  }
+  .phase-banner.is-visible {
+    transform: translate(-50%, -50%);
+  }
+}

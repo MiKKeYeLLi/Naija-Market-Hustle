@@ -1,6 +1,7 @@
 // GameState types and reset. Plain data only, so the rules can be tested without a renderer.
 
 import type { ItemTypeId } from './items';
+import type { Phase } from './spawner';
 
 export const ROUND_DURATION = 90;
 export const STARTING_LIVES = 3;
@@ -22,6 +23,8 @@ export interface FallingItem {
 export interface GameState {
   status: GameStatus;
   timeRemaining: number;
+  // Difficulty phase for the banner and HUD; follows timeRemaining.
+  phase: Phase;
   cash: number;
   lives: number;
   basketX: number;
@@ -36,6 +39,7 @@ export function createInitialState(bestScore = 0): GameState {
   return {
     status: 'ready',
     timeRemaining: ROUND_DURATION,
+    phase: 'warmUp',
     cash: 0,
     lives: STARTING_LIVES,
     basketX: 0,
