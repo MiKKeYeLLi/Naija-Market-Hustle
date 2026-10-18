@@ -3,7 +3,7 @@
 import { catchItems } from './collision';
 import { createItemIdMinter } from './items';
 import { BASKET_MAX_SPEED, clampBasketX } from './playArea';
-import { applyCatch, applyMiss } from './rules';
+import { applyCatch, applyMiss, roundEndReason } from './rules';
 import { Spawner, moveItems, removeExitedItems } from './spawner';
 import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
 
@@ -105,9 +105,13 @@ export class Game {
     this.stopLoop();
   }
 
+  // The only way into gameOver. The guarded transition succeeds once per round, so the reason is
+  // set once and onStatusChange('gameOver') fires once, however many end conditions hit.
   private endRound(reason: EndReason): void {
-    if (!this.transition('gameOver', 'playing')) return;
+    if (this.current.status !== 'playing') return;
+    // Set before the transition so status listeners (the results screen) already see the reason.
     this.current.endReason = reason;
+    this.transition('gameOver', 'playing');
   }
 
   // Applies `to` only if the game is currently in `from` and the table allows it.
@@ -164,9 +168,15 @@ export class Game {
     moveItems(this.current, dt);
     for (const item of catchItems(this.current, dt)) applyCatch(this.current, item);
     for (const item of removeExitedItems(this.current)) applyMiss(this.current, item);
-    this.spawner.update(this.current, dt);
-
     this.current.timeRemaining = Math.max(0, this.current.timeRemaining - dt);
-    if (this.current.timeRemaining === 0) this.endRound('time');
+
+    // One end check after every change this frame, so a last life and the timer running out
+    // together end the round once with one reason.
+    const reason = roundEndReason(this.current);
+    if (reason) {
+      this.endRound(reason);
+      return;
+    }
+    this.spawner.update(this.current, dt);
   }
 }
