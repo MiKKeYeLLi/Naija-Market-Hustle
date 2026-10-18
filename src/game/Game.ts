@@ -1,6 +1,8 @@
 // Game loop, state machine and round lifecycle. No three.js imports in game/.
 
+import { createItemIdMinter } from './items';
 import { BASKET_MAX_SPEED, clampBasketX } from './playArea';
+import { Spawner, advanceItems } from './spawner';
 import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
 
 // A stalled or backgrounded tab can deliver one huge frame gap; never simulate more than this at once.
@@ -37,6 +39,8 @@ export interface GameOptions {
   onStatusChange?(status: GameStatus, previous: GameStatus): void;
   steering?: SteeringInput;
   scheduler?: FrameScheduler;
+  // Source of randomness for spawning; tests pass a seeded one.
+  random?: () => number;
 }
 
 export class Game {
@@ -45,9 +49,12 @@ export class Game {
   private running = false;
   private lastTime: number | null = null;
   private readonly scheduler: FrameScheduler;
+  private readonly spawner: Spawner;
 
   constructor(private readonly options: GameOptions = {}) {
     this.scheduler = options.scheduler ?? browserScheduler;
+    // One ID minter for the game's lifetime keeps item IDs unique across restarts.
+    this.spawner = new Spawner(createItemIdMinter(), options.random);
     this.startLoop();
   }
 
@@ -87,6 +94,7 @@ export class Game {
     this.options.steering?.releaseAll();
     const previous = this.current.status;
     this.current = createInitialState(this.current.bestScore);
+    this.spawner.reset();
     if (previous !== 'ready') this.options.onStatusChange?.('ready', previous);
     this.startLoop();
   }
@@ -146,6 +154,10 @@ export class Game {
     if (direction !== 0) {
       this.current.basketX = clampBasketX(this.current.basketX + direction * BASKET_MAX_SPEED * dt);
     }
+
+    // Move existing items before spawning: a new item is already placed for how late in the frame it spawned.
+    advanceItems(this.current, dt);
+    this.spawner.update(this.current, dt);
 
     this.current.timeRemaining = Math.max(0, this.current.timeRemaining - dt);
     if (this.current.timeRemaining === 0) this.endRound('time');

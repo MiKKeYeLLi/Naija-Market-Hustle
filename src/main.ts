@@ -2,6 +2,7 @@ import { Game } from './game/Game';
 import { KeyboardControls, PointerControls } from './game/controls';
 import { ITEM_TYPES } from './game/items';
 import { BASKET_Y } from './game/playArea';
+import { ItemMeshSync } from './render/itemSync';
 import { animateItemModel, createBasketModel, createItemModel } from './render/models';
 import { createScene } from './render/scene';
 import './styles.css';
@@ -27,6 +28,8 @@ const gallery = params.has('models')
   : [];
 if (params.has('grey')) canvas.style.filter = 'grayscale(1)';
 
+const items = new ItemMeshSync(view.scene);
+
 const keyboard = new KeyboardControls(window);
 keyboard.attach();
 
@@ -35,6 +38,7 @@ const game = new Game({
   render: (state) => {
     basket.position.x = state.basketX;
     const seconds = performance.now() / 1000;
+    items.sync(state.items, seconds);
     for (const model of gallery) animateItemModel(model, seconds);
     view.render();
   },
@@ -47,3 +51,5 @@ pointer.attach();
 if (params.has('debug')) {
   Object.assign(window, { game, pointer, keyboard });
 }
+// ?autostart begins a round on load, until the start screen exists.
+if (params.has('autostart')) game.start();
