@@ -4,7 +4,7 @@ import { catchItems } from './collision';
 import { createItemIdMinter } from './items';
 import { BASKET_MAX_SPEED, clampBasketX } from './playArea';
 import { applyCatch, applyMiss, roundEndReason } from './rules';
-import { Spawner, moveItems, removeExitedItems } from './spawner';
+import { Spawner, moveItems, phaseAt, removeExitedItems, type Phase } from './spawner';
 import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
 
 // A stalled or backgrounded tab can deliver one huge frame gap; never simulate more than this at once.
@@ -39,6 +39,8 @@ export interface GameOptions {
   // Called once per frame in every state, after the simulation step. Must not change state.
   render?(state: Readonly<GameState>, dt: number): void;
   onStatusChange?(status: GameStatus, previous: GameStatus): void;
+  // Fires once per boundary per round (rush hour at 60 s, market madness at 30 s), never on reset.
+  onPhaseChange?(phase: Phase, previous: Phase): void;
   steering?: SteeringInput;
   scheduler?: FrameScheduler;
   // Source of randomness for spawning; tests pass a seeded one.
@@ -176,6 +178,14 @@ export class Game {
     if (reason) {
       this.endRound(reason);
       return;
+    }
+
+    // After the end check, so a round that just ended never flashes a phase banner.
+    const phase = phaseAt(this.current.timeRemaining);
+    if (phase !== this.current.phase) {
+      const previous = this.current.phase;
+      this.current.phase = phase;
+      this.options.onPhaseChange?.(phase, previous);
     }
     this.spawner.update(this.current, dt);
   }

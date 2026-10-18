@@ -5,6 +5,7 @@ import { BASKET_Y } from './game/playArea';
 import { ItemMeshSync } from './render/itemSync';
 import { animateItemModel, createBasketModel, createItemModel } from './render/models';
 import { createScene } from './render/scene';
+import { PhaseBanner } from './ui/banner';
 import './styles.css';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
@@ -33,8 +34,17 @@ const items = new ItemMeshSync(view.scene);
 const keyboard = new KeyboardControls(window);
 keyboard.attach();
 
+const uiRoot = document.querySelector<HTMLElement>('#ui-root');
+if (!uiRoot) throw new Error('Missing #ui-root element');
+const banner = new PhaseBanner(uiRoot);
+
 const game = new Game({
   steering: keyboard,
+  onPhaseChange: (phase) => banner.show(phase),
+  // A banner never lingers over the results or a fresh round.
+  onStatusChange: (status) => {
+    if (status === 'gameOver' || status === 'ready') banner.hide();
+  },
   render: (state) => {
     basket.position.x = state.basketX;
     const seconds = performance.now() / 1000;

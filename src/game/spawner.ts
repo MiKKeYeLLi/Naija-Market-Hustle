@@ -13,12 +13,47 @@ export interface DifficultySettings {
   hazardShare: number;
 }
 
-// The 90 s anchor from the PRD's Difficulty progression table.
-export const WARM_UP: DifficultySettings = { fallTime: 3.2, spawnInterval: 1.1, hazardShare: 0.15 };
+// The PRD's Difficulty progression table, by seconds remaining. Tune here: one line per anchor.
+// Keep hazardShare below 0.5 so fresh produce always outnumbers hazards.
+export const DIFFICULTY_ANCHORS: readonly (DifficultySettings & { timeRemaining: number })[] = [
+  { timeRemaining: 90, fallTime: 3.2, spawnInterval: 1.1, hazardShare: 0.15 },
+  { timeRemaining: 60, fallTime: 2.4, spawnInterval: 0.85, hazardShare: 0.2 },
+  { timeRemaining: 30, fallTime: 1.8, spawnInterval: 0.65, hazardShare: 0.25 },
+  { timeRemaining: 0, fallTime: 1.4, spawnInterval: 0.5, hazardShare: 0.35 },
+];
 
-// Warm-up for the whole round until NMH-12 interpolates between the anchors.
-export function difficultyAt(_timeRemaining: number): DifficultySettings {
-  return WARM_UP;
+// The round's opening values.
+export const WARM_UP: DifficultySettings = DIFFICULTY_ANCHORS[0];
+
+const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+
+// Linear between the two anchors around `timeRemaining`, so nothing jumps at a phase boundary.
+export function difficultyAt(timeRemaining: number): DifficultySettings {
+  const first = DIFFICULTY_ANCHORS[0];
+  const last = DIFFICULTY_ANCHORS[DIFFICULTY_ANCHORS.length - 1];
+  const t = Math.min(first.timeRemaining, Math.max(last.timeRemaining, timeRemaining));
+  for (let i = 1; i < DIFFICULTY_ANCHORS.length; i++) {
+    const later = DIFFICULTY_ANCHORS[i];
+    if (t < later.timeRemaining) continue;
+    const earlier = DIFFICULTY_ANCHORS[i - 1];
+    const progress = (earlier.timeRemaining - t) / (earlier.timeRemaining - later.timeRemaining);
+    return {
+      fallTime: lerp(earlier.fallTime, later.fallTime, progress),
+      spawnInterval: lerp(earlier.spawnInterval, later.spawnInterval, progress),
+      hazardShare: lerp(earlier.hazardShare, later.hazardShare, progress),
+    };
+  }
+  return last;
+}
+
+export type Phase = 'warmUp' | 'rushHour' | 'marketMadness';
+
+// Warm-up 90–61 s, rush hour 60–31 s, market madness 30–0 s. Phases only label the curve (banner, HUD);
+// difficulty itself comes from difficultyAt and is continuous across the boundaries.
+export function phaseAt(timeRemaining: number): Phase {
+  if (timeRemaining > 60) return 'warmUp';
+  if (timeRemaining > 30) return 'rushHour';
+  return 'marketMadness';
 }
 
 // Lane centres span exactly the basket's reach, so every lane can be caught.
