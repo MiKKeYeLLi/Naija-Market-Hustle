@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Game } from './game/Game';
-import { PointerControls } from './game/controls';
+import { KeyboardControls, PointerControls } from './game/controls';
 import { BASKET_WIDTH, BASKET_Y } from './game/playArea';
 import { createScene } from './render/scene';
 import './styles.css';
@@ -18,7 +18,11 @@ const basket = new THREE.Mesh(
 basket.position.y = BASKET_Y;
 view.scene.add(basket);
 
+const keyboard = new KeyboardControls(window);
+keyboard.attach();
+
 const game = new Game({
+  steering: keyboard,
   render: (state) => {
     basket.position.x = state.basketX;
     view.render();
@@ -30,5 +34,5 @@ pointer.attach();
 
 // No screens yet (NMH-14); with ?debug, drive the state machine from the console, e.g. game.start().
 if (new URLSearchParams(window.location.search).has('debug')) {
-  Object.assign(window, { game, pointer });
+  Object.assign(window, { game, pointer, keyboard });
 }
