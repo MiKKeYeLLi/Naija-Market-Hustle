@@ -10,6 +10,8 @@ export interface SceneContext {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
+  // Maps a pointer's clientX to x on the play plane (z = 0).
+  clientToPlayX(clientX: number): number;
   render(): void;
   dispose(): void;
 }
@@ -34,6 +36,9 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     scene.add(createDebugFrame());
   }
 
+  // Half the world-space height visible at z = 0; set by fit().
+  let visibleHalfHeight = PLAY_AREA.height / 2;
+
   function fit(): void {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -48,7 +53,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     // Tall screens are limited by width, wide screens by height.
     const halfHeight = (PLAY_AREA.height / 2) * (1 + FIT_MARGIN);
     const halfWidth = (PLAY_AREA.width / 2) * (1 + FIT_MARGIN);
-    const visibleHalfHeight = Math.max(halfHeight, halfWidth / aspect);
+    visibleHalfHeight = Math.max(halfHeight, halfWidth / aspect);
     const distance = visibleHalfHeight / Math.tan(THREE.MathUtils.degToRad(FOV_DEGREES / 2));
     camera.position.set(0, 0, distance);
     camera.lookAt(0, 0, 0);
@@ -69,6 +74,13 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     renderer.render(scene, camera);
   }
 
+  // The camera sits on the z axis looking at the origin, so the play plane maps linearly to the canvas.
+  function clientToPlayX(clientX: number): number {
+    const rect = canvas.getBoundingClientRect();
+    const unitsPerPixel = (visibleHalfHeight * 2) / rect.height;
+    return (clientX - rect.left - rect.width / 2) * unitsPerPixel;
+  }
+
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', onResize);
   window.visualViewport?.addEventListener('resize', onResize);
@@ -81,7 +93,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     renderer.dispose();
   }
 
-  return { renderer, scene, camera, render, dispose };
+  return { renderer, scene, camera, clientToPlayX, render, dispose };
 }
 
 // Visible with ?debug: play-area outline plus spheres at the corners and centre, to check fit and aspect.
