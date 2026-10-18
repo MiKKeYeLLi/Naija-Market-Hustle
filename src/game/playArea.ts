@@ -13,9 +13,19 @@ export const PLAY_AREA = {
   bottom: -PLAY_AREA_HEIGHT / 2,
 } as const;
 
-// Basket footprint on the play plane. NMH-07 builds the mesh to these dimensions.
+// Basket footprint on the play plane. render/models.ts builds the mesh to these dimensions.
 export const BASKET_WIDTH = 1.8;
+export const BASKET_HEIGHT = 0.8;
+// Centre of the basket body.
 export const BASKET_Y = PLAY_AREA.bottom + 1.2;
+
+// The catch zone: a band just inside the rim, narrower than the body so edge grazes don't count.
+// Collision (NMH-09) tests item hitboxes against this rectangle, centred on basketX.
+export const BASKET_MOUTH = {
+  width: 1.5,
+  height: 0.3,
+  centerY: BASKET_Y + BASKET_HEIGHT / 2 - 0.15,
+} as const;
 // Keyboard speed in units per second: edge to edge in about 0.6 s. NMH-13 uses it for lane reachability.
 export const BASKET_MAX_SPEED = 12;
 

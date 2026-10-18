@@ -50,7 +50,7 @@ export const ITEM_DEFINITIONS: Readonly<Record<ItemTypeId, ItemDefinition>> = {
     spawnWeight: 20,
     width: 0.6,
     height: 1,
-    colorKey: '#ff6d00',
+    colorKey: '#e8421a',
   },
   onion: {
     id: 'onion',
