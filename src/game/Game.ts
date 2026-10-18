@@ -1,6 +1,6 @@
 // Game loop, state machine and round lifecycle. No three.js imports in game/.
 
-import { clampBasketX } from './playArea';
+import { BASKET_MAX_SPEED, clampBasketX } from './playArea';
 import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
 
 // A stalled or backgrounded tab can deliver one huge frame gap; never simulate more than this at once.
@@ -25,10 +25,17 @@ const browserScheduler: FrameScheduler = {
   cancel: (handle) => cancelAnimationFrame(handle),
 };
 
+// Held-key steering, read once per step. Released whenever the round stops playing.
+export interface SteeringInput {
+  direction(): number; // -1 left, 0 none, 1 right
+  releaseAll(): void;
+}
+
 export interface GameOptions {
   // Called once per frame in every state, after the simulation step. Must not change state.
   render?(state: Readonly<GameState>, dt: number): void;
   onStatusChange?(status: GameStatus, previous: GameStatus): void;
+  steering?: SteeringInput;
   scheduler?: FrameScheduler;
 }
 
@@ -77,6 +84,7 @@ export class Game {
   // Fresh round state in `ready`; the best score carries over. Always allowed.
   reset(): void {
     this.stopLoop();
+    this.options.steering?.releaseAll();
     const previous = this.current.status;
     this.current = createInitialState(this.current.bestScore);
     if (previous !== 'ready') this.options.onStatusChange?.('ready', previous);
@@ -97,6 +105,8 @@ export class Game {
     const previous = this.current.status;
     if (previous !== from || !TRANSITIONS[previous].includes(to)) return false;
     this.current.status = to;
+    // Leaving play (pause or game over) drops held keys so movement never sticks on return.
+    if (previous === 'playing') this.options.steering?.releaseAll();
     this.options.onStatusChange?.(to, previous);
     return true;
   }
@@ -131,6 +141,11 @@ export class Game {
 
   private step(dt: number): void {
     if (this.current.status !== 'playing') return;
+
+    const direction = this.options.steering?.direction() ?? 0;
+    if (direction !== 0) {
+      this.current.basketX = clampBasketX(this.current.basketX + direction * BASKET_MAX_SPEED * dt);
+    }
 
     this.current.timeRemaining = Math.max(0, this.current.timeRemaining - dt);
     if (this.current.timeRemaining === 0) this.endRound('time');
