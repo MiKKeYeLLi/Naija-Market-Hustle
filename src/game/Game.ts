@@ -1,5 +1,6 @@
 // Game loop, state machine and round lifecycle. No three.js imports in game/.
 
+import { clampBasketX } from './playArea';
 import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
 
 // A stalled or backgrounded tab can deliver one huge frame gap; never simulate more than this at once.
@@ -63,6 +64,13 @@ export class Game {
     if (!this.transition('playing', 'paused')) return false;
     // Restart the frame clock so time spent paused is never simulated.
     this.lastTime = null;
+    return true;
+  }
+
+  // Moves the basket centre towards play-area x, clamped to the edges. Ignored unless playing.
+  moveBasketTo(x: number): boolean {
+    if (this.current.status !== 'playing' || !Number.isFinite(x)) return false;
+    this.current.basketX = clampBasketX(x);
     return true;
   }
 
