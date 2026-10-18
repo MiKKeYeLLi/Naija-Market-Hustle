@@ -1,0 +1,31 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f4b860;
+  overscroll-behavior: none;
+}
+
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* HTML screens and HUD sit above the canvas; children opt back in to pointer events. */
+#ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
