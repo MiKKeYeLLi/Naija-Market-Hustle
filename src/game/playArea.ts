@@ -16,6 +16,8 @@ export const PLAY_AREA = {
 // Basket footprint on the play plane. NMH-07 builds the mesh to these dimensions.
 export const BASKET_WIDTH = 1.8;
 export const BASKET_Y = PLAY_AREA.bottom + 1.2;
+// Keyboard speed in units per second: edge to edge in about 0.6 s. NMH-13 uses it for lane reachability.
+export const BASKET_MAX_SPEED = 12;
 
 // Keeps the whole basket, not just its centre, inside the play area.
 export function clampBasketX(x: number): number {

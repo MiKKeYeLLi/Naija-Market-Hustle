@@ -1,4 +1,4 @@
-// Pointer, touch and keyboard input (NMH-04, NMH-05). Translates DOM events into Game calls;
+// Pointer, touch and keyboard input (NMH-04, NMH-05). Translates DOM events into game input;
 // the client-to-play-area conversion is injected so this file stays free of three.js.
 
 export interface BasketMover {
@@ -66,5 +66,80 @@ export class PointerControls {
 
   private preventTouch = (event: Event): void => {
     if (event.cancelable) event.preventDefault();
+  };
+}
+
+// Physical key codes, so A/D sit in the same place on AZERTY and other layouts.
+const KEY_DIRECTIONS: Record<string, -1 | 1> = {
+  ArrowLeft: -1,
+  KeyA: -1,
+  ArrowRight: 1,
+  KeyD: 1,
+};
+
+type KeyLike = Event & { code: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean };
+
+// Tracks held steering keys; Game reads direction() each step and applies speed x delta time.
+export class KeyboardControls {
+  private readonly held = new Set<string>();
+  private attached = false;
+
+  // Pass window: key events bubble to it, and document's visibilitychange propagates to it.
+  constructor(private readonly target: Pick<EventTarget, 'addEventListener' | 'removeEventListener'>) {}
+
+  get isAttached(): boolean {
+    return this.attached;
+  }
+
+  direction(): number {
+    let left = false;
+    let right = false;
+    for (const code of this.held) {
+      if (KEY_DIRECTIONS[code] === -1) left = true;
+      else if (KEY_DIRECTIONS[code] === 1) right = true;
+    }
+    // Any left against any right cancels out, however many keys point each way.
+    return (right ? 1 : 0) - (left ? 1 : 0);
+  }
+
+  releaseAll(): void {
+    this.held.clear();
+  }
+
+  attach(): void {
+    if (this.attached) return;
+    this.attached = true;
+    this.target.addEventListener('keydown', this.onKeyDown);
+    this.target.addEventListener('keyup', this.onKeyUp);
+    this.target.addEventListener('blur', this.onFocusLost);
+    this.target.addEventListener('visibilitychange', this.onFocusLost);
+  }
+
+  detach(): void {
+    if (!this.attached) return;
+    this.attached = false;
+    this.target.removeEventListener('keydown', this.onKeyDown);
+    this.target.removeEventListener('keyup', this.onKeyUp);
+    this.target.removeEventListener('blur', this.onFocusLost);
+    this.target.removeEventListener('visibilitychange', this.onFocusLost);
+    this.releaseAll();
+  }
+
+  private onKeyDown = (event: Event): void => {
+    const key = event as KeyLike;
+    if (!(key.code in KEY_DIRECTIONS)) return;
+    // Leave browser shortcuts such as Ctrl+D alone.
+    if (key.ctrlKey || key.metaKey || key.altKey) return;
+    // Auto-repeat keydowns re-add a key that was released by a pause while still physically held.
+    this.held.add(key.code);
+    if (key.cancelable) key.preventDefault();
+  };
+
+  private onKeyUp = (event: Event): void => {
+    this.held.delete((event as KeyLike).code);
+  };
+
+  private onFocusLost = (): void => {
+    this.releaseAll();
   };
 }
