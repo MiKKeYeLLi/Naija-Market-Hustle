@@ -2,10 +2,12 @@ import { Game } from './game/Game';
 import { KeyboardControls, PointerControls } from './game/controls';
 import { ITEM_TYPES } from './game/items';
 import { BASKET_Y } from './game/playArea';
+import { loadBestScore, loadSoundOn, saveSoundOn } from './game/storage';
 import { ItemMeshSync } from './render/itemSync';
 import { animateItemModel, createBasketModel, createItemModel } from './render/models';
 import { createScene } from './render/scene';
 import { PhaseBanner } from './ui/banner';
+import { StartScreen } from './ui/screens';
 import './styles.css';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
@@ -38,12 +40,23 @@ const uiRoot = document.querySelector<HTMLElement>('#ui-root');
 if (!uiRoot) throw new Error('Missing #ui-root element');
 const banner = new PhaseBanner(uiRoot);
 
+// The round only starts from this button: the timer stays at 90 in `ready` until it is pressed.
+const startScreen = new StartScreen(uiRoot, {
+  soundOn: loadSoundOn(),
+  onStart: () => game.start(),
+  // NMH-22 plays (or silences) the sounds; the choice is remembered from here.
+  onSoundChange: (on) => saveSoundOn(on),
+});
+
 const game = new Game({
   steering: keyboard,
+  bestScore: loadBestScore(),
   onPhaseChange: (phase) => banner.show(phase),
-  // A banner never lingers over the results or a fresh round.
   onStatusChange: (status) => {
+    // A banner never lingers over the results or a fresh round.
     if (status === 'gameOver' || status === 'ready') banner.hide();
+    if (status === 'ready') startScreen.show(game.state.bestScore);
+    if (status === 'playing') startScreen.hide();
   },
   render: (state) => {
     basket.position.x = state.basketX;
@@ -57,9 +70,12 @@ const game = new Game({
 const pointer = new PointerControls(canvas, game, view.clientToPlayX);
 pointer.attach();
 
-// No screens yet (NMH-14); with ?debug, drive the state machine from the console, e.g. game.start().
+// The game boots in `ready`, which never fires a status change, so show the start screen directly.
+startScreen.show(game.state.bestScore);
+
+// ?debug exposes the game objects to the console, e.g. game.state.
 if (params.has('debug')) {
   Object.assign(window, { game, pointer, keyboard });
 }
-// ?autostart begins a round on load, until the start screen exists.
+// ?autostart skips the start screen and begins a round on load (development shortcut).
 if (params.has('autostart')) game.start();

@@ -70,3 +70,170 @@ body {
     transform: translate(-50%, -50%);
   }
 }
+
+/* Screens (NMH-14+): a card over the idle scene. Screens take pointer events so the canvas
+   underneath can't be dragged while one is up. */
+:root {
+  --ink: #2b1608;
+  --ink-soft: #5c3a1e;
+  --card: #fff6e3;
+  --card-edge: #e9c98f;
+  --accent: #1f7a3a;
+  --accent-edge: #145528;
+  --danger: #b3261e;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  /* Warm veil: the market scene stays visible behind the card. */
+  background: rgb(59 31 14 / 0.38);
+  pointer-events: auto;
+  overflow-y: auto;
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.screen-card {
+  width: min(100%, 24rem);
+  padding: clamp(1.25rem, 6vw, 2rem);
+  border: 3px solid var(--card-edge);
+  border-radius: 1.25rem;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font);
+  text-align: center;
+  box-shadow: 0 0.5rem 0 var(--card-edge), 0 1.25rem 2.5rem rgb(43 22 8 / 0.3);
+}
+
+.screen-title {
+  margin: 0 0 1rem;
+  font-size: clamp(1.9rem, 9vw, 2.6rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.instructions {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  font-size: clamp(0.95rem, 4.2vw, 1.05rem);
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.instructions li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.instruction-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mark-fresh {
+  background: #e53935;
+  box-shadow: inset 0 -0.2rem 0 rgb(0 0 0 / 0.18);
+}
+
+.mark-fresh::after {
+  content: '';
+  width: 0.55rem;
+  height: 0.3rem;
+  margin-top: -1.15rem;
+  border-radius: 0.3rem 0.3rem 0 0;
+  background: #3f8f2f;
+}
+
+/* The same light X as the in-game hazards, on the same dull body. */
+.mark-rotten {
+  background: #6d5d2f;
+  color: #f3ead8;
+}
+
+.mark-move {
+  background: #c8893e;
+  color: var(--card);
+}
+
+.best-score {
+  margin: 0 0 1.25rem;
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+
+.best-score strong {
+  margin-left: 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.button {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  font: 800 1.1rem / 1 var(--font);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.button-primary {
+  padding: 0.95rem 1.25rem;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0.3rem 0 var(--accent-edge);
+}
+
+.button-primary:active {
+  transform: translateY(0.2rem);
+  box-shadow: 0 0.1rem 0 var(--accent-edge);
+}
+
+.button-quiet {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.button-quiet:hover {
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button-primary:active {
+    transform: none;
+  }
+}

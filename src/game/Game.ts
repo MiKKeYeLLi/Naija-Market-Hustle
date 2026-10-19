@@ -45,10 +45,12 @@ export interface GameOptions {
   scheduler?: FrameScheduler;
   // Source of randomness for spawning; tests pass a seeded one.
   random?: () => number;
+  // Saved best from a previous visit; carried through every reset.
+  bestScore?: number;
 }
 
 export class Game {
-  private current: GameState = createInitialState();
+  private current: GameState;
   private frameHandle: number | null = null;
   private running = false;
   private lastTime: number | null = null;
@@ -58,6 +60,7 @@ export class Game {
   constructor(private readonly options: GameOptions = {}) {
     this.scheduler = options.scheduler ?? browserScheduler;
     // One ID minter for the game's lifetime keeps item IDs unique across restarts.
+    this.current = createInitialState(options.bestScore ?? 0);
     this.spawner = new Spawner(createItemIdMinter(), options.random);
     this.startLoop();
   }
