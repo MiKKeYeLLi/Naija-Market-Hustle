@@ -1,5 +1,5 @@
-// Timer, cash and lives HUD (NMH-15). A strip across the top that never takes pointer events,
-// so drags that start on it still reach the canvas and move the basket.
+// Timer, cash and lives HUD (NMH-15) with the pause button (NMH-16). The strip never takes pointer
+// events, so drags that start on it still reach the canvas; only the pause button opts back in.
 
 import { MAX_LIVES, type GameState } from '../game/state';
 import { formatNaira } from './format';
@@ -27,18 +27,27 @@ export class Hud {
   private readonly cash: HTMLElement;
   private readonly hearts: HTMLElement;
   private readonly heartIcons: HTMLElement[];
+  private readonly pauseButton: HTMLButtonElement;
   private shown: { seconds: number; cash: number; lives: number } | null = null;
   // DOM writes so far; lets tests prove updates happen only on change.
   writes = 0;
 
-  constructor(root: HTMLElement) {
+  constructor(
+    root: HTMLElement,
+    private readonly options: { onPause?(): void } = {},
+  ) {
     this.element = document.createElement('header');
     this.element.className = 'hud';
     this.element.hidden = true;
     this.element.innerHTML = `
-      <div class="hud-cell hud-timer" aria-label="Time left">
-        <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5"/></svg>
-        <span data-timer></span>
+      <div class="hud-cell hud-start">
+        <button type="button" class="hud-pause" aria-label="Pause" disabled data-pause>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+        <span class="hud-timer" aria-label="Time left">
+          <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5"/></svg>
+          <span data-timer></span>
+        </span>
       </div>
       <div class="hud-cell hud-cash" aria-label="Cash"><span data-cash></span></div>
       <div class="hud-cell hud-lives" role="img" data-lives>
@@ -48,6 +57,8 @@ export class Hud {
     this.cash = this.element.querySelector('[data-cash]')!;
     this.hearts = this.element.querySelector('[data-lives]')!;
     this.heartIcons = [...this.hearts.querySelectorAll<HTMLElement>('.heart')];
+    this.pauseButton = this.element.querySelector('[data-pause]')!;
+    this.pauseButton.addEventListener('click', this.onPauseClick);
     root.append(this.element);
   }
 
@@ -86,7 +97,17 @@ export class Hud {
     return this.element.hidden ? 0 : this.element.getBoundingClientRect().bottom;
   }
 
+  // The pause button only works while a round is playing.
+  setPausable(pausable: boolean): void {
+    this.pauseButton.disabled = !pausable;
+  }
+
   dispose(): void {
+    this.pauseButton.removeEventListener('click', this.onPauseClick);
     this.element.remove();
   }
+
+  private onPauseClick = (): void => {
+    this.options.onPause?.();
+  };
 }

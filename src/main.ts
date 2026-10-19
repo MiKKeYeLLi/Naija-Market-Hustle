@@ -1,5 +1,5 @@
 import { Game } from './game/Game';
-import { KeyboardControls, PointerControls } from './game/controls';
+import { KeyboardControls, PauseControls, PointerControls } from './game/controls';
 import { ITEM_TYPES } from './game/items';
 import { BASKET_Y } from './game/playArea';
 import { loadBestScore, loadSoundOn, saveSoundOn } from './game/storage';
@@ -8,7 +8,7 @@ import { animateItemModel, createBasketModel, createItemModel } from './render/m
 import { createScene } from './render/scene';
 import { PhaseBanner } from './ui/banner';
 import { Hud } from './ui/hud';
-import { StartScreen } from './ui/screens';
+import { PauseScreen, StartScreen } from './ui/screens';
 import './styles.css';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
@@ -43,7 +43,7 @@ const banner = new PhaseBanner(uiRoot);
 
 // Always shown (under the start screen's veil too), so the space the scene reserves for it never
 // changes when a round starts and the play area never jumps.
-const hud = new Hud(uiRoot);
+const hud = new Hud(uiRoot, { onPause: () => game.pause() });
 hud.show();
 // Fit the play area below the HUD strip, tracking its real height (safe areas, font scaling).
 new ResizeObserver(() => view.setTopInset(hud.height)).observe(hud.element);
@@ -56,15 +56,27 @@ const startScreen = new StartScreen(uiRoot, {
   onSoundChange: (on) => saveSoundOn(on),
 });
 
+const pauseScreen = new PauseScreen(uiRoot, {
+  onResume: () => game.resume(),
+  // A fresh round straight away; the best score carries over through reset().
+  onRestart: () => {
+    game.reset();
+    game.start();
+  },
+});
+
 const game = new Game({
   steering: keyboard,
   bestScore: loadBestScore(),
   onPhaseChange: (phase) => banner.show(phase),
   onStatusChange: (status) => {
-    // A banner never lingers over the results or a fresh round.
-    if (status === 'gameOver' || status === 'ready') banner.hide();
+    // A banner never lingers over an overlay, the results or a fresh round.
+    if (status !== 'playing') banner.hide();
     if (status === 'ready') startScreen.show(game.state.bestScore);
     if (status === 'playing') startScreen.hide();
+    if (status === 'paused') pauseScreen.show();
+    else pauseScreen.hide();
+    hud.setPausable(status === 'playing');
   },
   render: (state) => {
     hud.update(state);
@@ -78,6 +90,10 @@ const game = new Game({
 
 const pointer = new PointerControls(canvas, game, view.clientToPlayX);
 pointer.attach();
+
+// P / Esc toggle pause; hiding the tab pauses.
+const pauseKeys = new PauseControls(window, document, game);
+pauseKeys.attach();
 
 // The game boots in `ready`, which never fires a status change, so show the start screen directly.
 startScreen.show(game.state.bestScore);

@@ -82,3 +82,64 @@ export class StartScreen {
     this.soundButton.textContent = this.soundOn ? 'Sound: on' : 'Sound: off';
   }
 }
+
+export interface PauseScreenOptions {
+  onResume(): void;
+  onRestart(): void;
+}
+
+// The pause overlay: the round is frozen behind it until Resume (or P / Esc).
+export class PauseScreen {
+  private readonly element: HTMLElement;
+  private readonly resumeButton: HTMLButtonElement;
+  private readonly restartButton: HTMLButtonElement;
+
+  constructor(
+    root: HTMLElement,
+    private readonly options: PauseScreenOptions,
+  ) {
+    this.element = document.createElement('section');
+    this.element.className = 'screen pause-screen';
+    this.element.setAttribute('aria-labelledby', 'pause-title');
+    this.element.hidden = true;
+    this.element.innerHTML = `
+      <div class="screen-card">
+        <h2 id="pause-title" class="screen-title">Paused</h2>
+        <p class="screen-note">The market waits for you.<span class="key-hint"> Press P or Esc to carry on.</span></p>
+        <button type="button" class="button button-primary" data-resume>Resume</button>
+        <button type="button" class="button button-quiet" data-restart>Restart</button>
+      </div>`;
+    this.resumeButton = this.element.querySelector('[data-resume]')!;
+    this.restartButton = this.element.querySelector('[data-restart]')!;
+    this.resumeButton.addEventListener('click', this.onResumeClick);
+    this.restartButton.addEventListener('click', this.onRestartClick);
+    root.append(this.element);
+  }
+
+  get isVisible(): boolean {
+    return !this.element.hidden;
+  }
+
+  show(): void {
+    this.element.hidden = false;
+    this.resumeButton.focus({ preventScroll: true });
+  }
+
+  hide(): void {
+    this.element.hidden = true;
+  }
+
+  dispose(): void {
+    this.resumeButton.removeEventListener('click', this.onResumeClick);
+    this.restartButton.removeEventListener('click', this.onRestartClick);
+    this.element.remove();
+  }
+
+  private onResumeClick = (): void => {
+    this.options.onResume();
+  };
+
+  private onRestartClick = (): void => {
+    this.options.onRestart();
+  };
+}
