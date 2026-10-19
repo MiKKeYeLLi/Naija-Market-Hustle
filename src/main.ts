@@ -8,7 +8,7 @@ import { animateItemModel, createBasketModel, createItemModel } from './render/m
 import { createScene } from './render/scene';
 import { PhaseBanner } from './ui/banner';
 import { Hud } from './ui/hud';
-import { PauseScreen, StartScreen } from './ui/screens';
+import { PauseScreen, ResultsScreen, StartScreen } from './ui/screens';
 import './styles.css';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
@@ -56,6 +56,14 @@ const startScreen = new StartScreen(uiRoot, {
   onSoundChange: (on) => saveSoundOn(on),
 });
 
+// Shown from the gameOver status change, which the state machine fires exactly once per round.
+const resultsScreen = new ResultsScreen(uiRoot, {
+  onPlayAgain: () => {
+    game.reset();
+    game.start();
+  },
+});
+
 const pauseScreen = new PauseScreen(uiRoot, {
   onResume: () => game.resume(),
   // A fresh round straight away; the best score carries over through reset().
@@ -76,6 +84,8 @@ const game = new Game({
     if (status === 'playing') startScreen.hide();
     if (status === 'paused') pauseScreen.show();
     else pauseScreen.hide();
+    if (status === 'gameOver') resultsScreen.show(game.state);
+    else resultsScreen.hide();
     hud.setPausable(status === 'playing');
   },
   render: (state) => {

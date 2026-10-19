@@ -114,8 +114,11 @@ export class Game {
   // set once and onStatusChange('gameOver') fires once, however many end conditions hit.
   private endRound(reason: EndReason): void {
     if (this.current.status !== 'playing') return;
-    // Set before the transition so status listeners (the results screen) already see the reason.
+    // Set before the transition so status listeners (the results screen) already see the reason and
+    // whether this round set a new best. Strictly greater: matching the best is not a new one.
     this.current.endReason = reason;
+    this.current.isNewBest = this.current.cash > this.current.bestScore;
+    if (this.current.isNewBest) this.current.bestScore = this.current.cash;
     this.transition('gameOver', 'playing');
   }
 
