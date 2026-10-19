@@ -10,9 +10,9 @@ const ITEM_TILT = 0.3;
 const BASKET_TILT = 0.35;
 
 const HAZARD_STEM = '#4a3b22';
-const HAZARD_SPLOTCH = '#24190d';
+export const HAZARD_SPLOTCH = '#24190d';
 // Light cross on a dark, dull body: high luminance contrast, so it survives greyscale.
-const HAZARD_MARK = '#f3ead8';
+export const HAZARD_MARK = '#f3ead8';
 const HAZARD_WOBBLE_SPEED = 7;
 const HAZARD_WOBBLE_ANGLE = 0.22;
 

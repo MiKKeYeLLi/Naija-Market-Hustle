@@ -259,7 +259,8 @@ body {
   gap: 0.5rem;
   padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px
     max(16px, env(safe-area-inset-left));
-  background: linear-gradient(rgb(43 22 8 / 0.82), rgb(43 22 8 / 0.62));
+  /* At least 0.9 opaque: HUD text and icons keep WCAG AA contrast even over the brightest sky (NMH-24). */
+  background: linear-gradient(rgb(43 22 8 / 0.94), rgb(43 22 8 / 0.9));
   color: #fff6e3;
   font: 800 clamp(1.1rem, 5.2vw, 1.5rem) / 1 var(--font);
   font-variant-numeric: tabular-nums;
@@ -298,7 +299,7 @@ body {
   height: 44px;
   margin-left: -6px;
   padding: 0;
-  border: 2px solid rgb(255 246 227 / 0.5);
+  border: 2px solid rgb(255 246 227 / 0.7);
   border-radius: 12px;
   background: rgb(255 246 227 / 0.12);
   color: #fff6e3;
@@ -363,7 +364,7 @@ body {
 /* A lost life keeps its outline but loses its fill. */
 .heart.is-lost {
   fill: transparent;
-  stroke: rgb(255 246 227 / 0.55);
+  stroke: rgb(255 246 227 / 0.7);
   transform: scale(0.85);
 }
 
@@ -616,4 +617,50 @@ body {
   font: 600 11px / 1.4 ui-monospace, 'Cascadia Mono', Menlo, monospace;
   white-space: pre;
   pointer-events: none;
+}
+
+/* Accessibility and fallbacks (NMH-24). */
+
+/* Read by screen readers, invisible on screen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fallback-tips {
+  margin: 0;
+  padding-left: 1.2rem;
+  text-align: left;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.fallback-tips li + li {
+  margin-top: 0.4rem;
+}
+
+.graphics-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  max-width: min(22rem, calc(100% - 32px));
+  padding: 0.7rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--ink);
+  color: #fff6e3;
+  font: 700 0.95rem / 1.35 var(--font);
+  text-align: center;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.graphics-notice[hidden] {
+  display: none;
 }

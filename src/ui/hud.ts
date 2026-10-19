@@ -44,12 +44,12 @@ export class Hud {
         <button type="button" class="hud-pause" aria-label="Pause" disabled data-pause>
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
         </button>
-        <span class="hud-timer" aria-label="Time left">
+        <span class="hud-timer">
           <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5"/></svg>
-          <span data-timer></span>
+          <span data-timer></span><span class="sr-only"> seconds left</span>
         </span>
       </div>
-      <div class="hud-cell hud-cash" aria-label="Cash"><span data-cash></span></div>
+      <div class="hud-cell hud-cash"><span class="sr-only">Cash </span><span data-cash></span></div>
       <div class="hud-cell hud-lives" role="img" data-lives>
         ${Array.from({ length: MAX_LIVES }, () => `<svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="${HEART_PATH}"/></svg>`).join('')}
       </div>`;
