@@ -6,11 +6,12 @@ import { loadBestScore, loadSoundOn, saveBestScore, saveSoundOn } from './game/s
 import { ParticleBursts } from './render/effects';
 import { createEnvironment } from './render/environment';
 import { ItemMeshSync } from './render/itemSync';
-import { animateItemModel, createBasketModel, createItemModel } from './render/models';
+import { animateItemModel, createBasketModel, createItemModel, disposeModelResources } from './render/models';
 import { createScene } from './render/scene';
 import { PhaseBanner } from './ui/banner';
 import { Feedback, isPenalty } from './ui/feedback';
 import { Hud } from './ui/hud';
+import { PerfOverlay } from './ui/perf';
 import { PauseScreen, ResultsScreen, StartScreen } from './ui/screens';
 import { SoundBoard } from './audio';
 import './styles.css';
@@ -27,7 +28,8 @@ const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const reducedMotion = () => motionQuery.matches;
 
 // Static market backdrop behind the play plane, drawn once per resize rather than every frame.
-view.setBackdrop(createEnvironment().group);
+const environment = createEnvironment();
+view.setBackdrop(environment.group);
 
 const basket = createBasketModel();
 basket.position.y = BASKET_Y;
@@ -63,6 +65,9 @@ const feedback = new Feedback(uiRoot, {
 
 // Always shown (under the start screen's veil too), so the space the scene reserves for it never
 // changes when a round starts and the play area never jumps.
+// ?perf shows fps, the round's worst second and draw calls, for profiling on a real phone.
+const perf = params.has('perf') ? new PerfOverlay(uiRoot) : null;
+
 const hud = new Hud(uiRoot, { onPause: () => game.pause() });
 hud.show();
 // Fit the play area below the HUD strip, tracking its real height (safe areas, font scaling).
@@ -121,7 +126,8 @@ const game = new Game({
     }
   },
   onPhaseChange: (phase) => banner.show(phase),
-  onStatusChange: (status) => {
+  onStatusChange: (status, previous) => {
+    if (status === 'playing' && previous === 'ready') perf?.resetRound();
     // A banner never lingers over an overlay, the results or a fresh round.
     if (status !== 'playing') banner.hide();
     if (status === 'ready') startScreen.show(game.state.bestScore);
@@ -149,6 +155,10 @@ const game = new Game({
     particles.update(state.status === 'playing' ? dt : 0);
     for (const model of gallery) animateItemModel(model, seconds);
     view.render();
+    if (perf) {
+      const { render, memory } = view.renderer.info;
+      perf.frame(performance.now(), { calls: render.calls, triangles: render.triangles, geometries: memory.geometries });
+    }
   },
 });
 
@@ -162,9 +172,31 @@ pauseKeys.attach();
 // The game boots in `ready`, which never fires a status change, so show the start screen directly.
 startScreen.show(game.state.bestScore);
 
+// Full teardown: stops the loop, removes every listener and frees every geometry, material and the
+// WebGL context. Runs when the page is really going away (not when it is kept in the back/forward
+// cache, which may restore it).
+function teardown(): void {
+  game.dispose();
+  pointer.detach();
+  keyboard.detach();
+  pauseKeys.detach();
+  sound.dispose();
+  items.dispose();
+  particles.dispose();
+  environment.dispose();
+  basket.removeFromParent();
+  for (const model of gallery) model.removeFromParent();
+  disposeModelResources();
+  perf?.dispose();
+  view.dispose();
+}
+window.addEventListener('pagehide', (event) => {
+  if (!event.persisted) teardown();
+});
+
 // ?debug exposes the game objects to the console, e.g. game.state.
 if (params.has('debug')) {
-  Object.assign(window, { game, pointer, keyboard, view, items });
+  Object.assign(window, { game, pointer, keyboard, view, items, perf, teardown });
 }
 // ?autostart skips the start screen and begins a round on load (development shortcut).
 if (params.has('autostart')) game.start();

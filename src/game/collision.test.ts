@@ -182,3 +182,32 @@ describe('Game integration', () => {
     expect(target.resolved).toBe(true);
   });
 });
+
+describe('hot path allocations', () => {
+  it('compacts the item list in place and shares one empty result when nothing is caught', () => {
+    const list = [item(0, 6), item(1, 5)];
+    const state = stateWith(list);
+    const first = catchItems(state, 0.016);
+    const second = catchItems(state, 0.016);
+    expect(state.items).toBe(list); // same array, no new one per frame
+    expect(first).toEqual([]);
+    expect(second).toBe(first); // the shared empty result
+    expect(Object.isFrozen(first)).toBe(true);
+  });
+
+  it('still removes caught items from the same array', () => {
+    const list = [item(0, 6), item(0, BASKET_MOUTH.centerY), item(1, 5)];
+    const state = stateWith(list);
+    expect(catchItems(state, 0)).toHaveLength(1);
+    expect(state.items).toBe(list);
+    expect(state.items).toHaveLength(2);
+  });
+
+  it('does the same for items leaving the bottom', () => {
+    const list = [item(0, 0), item(1, -20)];
+    const state = stateWith(list);
+    expect(removeExitedItems(state)).toHaveLength(1);
+    expect(state.items).toBe(list);
+    expect(removeExitedItems(state)).toBe(removeExitedItems(state));
+  });
+});
