@@ -1,0 +1,8 @@
+{
+  "leaderboard": {
+    "stats": [
+      { "key": "cash", "label": "Best cash (₦)", "order": "highest" },
+      { "key": "fresh", "label": "Fresh produce caught", "order": "highest" }
+    ]
+  }
+}

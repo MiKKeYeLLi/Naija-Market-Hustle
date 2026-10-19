@@ -16,8 +16,10 @@ import { GraphicsNotice } from './ui/fallback';
 import { Feedback, isPenalty } from './ui/feedback';
 import { Hud } from './ui/hud';
 import { PerfOverlay } from './ui/perf';
+import { ProfileCard } from './ui/profile';
 import { PauseScreen, ResultsScreen, StartScreen } from './ui/screens';
 import { SoundBoard } from './audio';
+import { StartNgClient, connectPageTransport, isOnStartNg, signInUrl, type WhoAmI } from './startng';
 
 export function startGame(): void {
   const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
@@ -144,10 +146,12 @@ export function startGame(): void {
       if (status === 'gameOver') {
         sound.play('gameOver');
         resultsScreen.show(game.state);
+        void saveRunToStartNg();
       } else {
         resultsScreen.hide();
       }
       hud.setPausable(status === 'playing');
+      profile.setBetweenRounds(status !== 'playing');
     },
     render: (state, dt) => {
       hud.update(state);
@@ -186,6 +190,43 @@ export function startGame(): void {
     graphicsNotice.hide();
   });
 
+  // start.ng: who's playing (profile card), sign-in for guests, and the shared leaderboard. Off
+  // start.ng (local dev) the client has no transport and the game simply plays without a profile.
+  const startNg = new StartNgClient(isOnStartNg() ? connectPageTransport() : null);
+  let who: WhoAmI | null = null;
+  const profile = new ProfileCard(uiRoot, () => {
+    location.href = signInUrl();
+  });
+  new ResizeObserver(() => profile.setTop(hud.height)).observe(hud.element);
+  const refreshPlayer = async () => {
+    who = await startNg.whoAmI();
+    profile.setPlayer(who);
+  };
+  // They may have signed in or out on start.ng while away from this tab.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void refreshPlayer();
+  });
+  window.addEventListener('focus', () => void refreshPlayer());
+  void refreshPlayer();
+
+  // Signed-in players' runs go to the start.ng leaderboard; guests are invited to sign in.
+  async function saveRunToStartNg(): Promise<void> {
+    if (!who) return;
+    const round = resultsScreen.shows;
+    if (!who.user) {
+      resultsScreen.setOnlineNote('Sign in with start.ng to put your cash on the leaderboard.');
+      return;
+    }
+    const saved = await startNg.saveRun({ cash: game.state.cash, fresh: game.state.freshCaught });
+    // Ignore a slow reply that lands after the player has already moved on to another round.
+    if (round !== resultsScreen.shows || !saved?.ok) return;
+    resultsScreen.setOnlineNote(
+      saved.improved
+        ? `New start.ng best! You're #${saved.rank} on the leaderboard.`
+        : `Saved to start.ng. Your best run is #${saved.rank} on the leaderboard.`,
+    );
+  }
+
   // The game boots in `ready`, which never fires a status change, so show the start screen directly.
   startScreen.show(game.state.bestScore);
 
@@ -205,6 +246,7 @@ export function startGame(): void {
     for (const model of gallery) model.removeFromParent();
     disposeModelResources();
     perf?.dispose();
+    profile.dispose();
     view.dispose();
   }
   window.addEventListener('pagehide', (event) => {

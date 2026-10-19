@@ -171,6 +171,7 @@ export class ResultsScreen {
   private readonly playAgainButton: HTMLButtonElement;
   private readonly fields: Record<'title' | 'reason' | 'cash' | 'message' | 'fresh' | 'rotten' | 'lives', HTMLElement>;
   private readonly badge: HTMLElement;
+  private readonly online: HTMLElement;
   // How many times show() has run; lets tests prove one results screen per round.
   shows = 0;
 
@@ -190,6 +191,7 @@ export class ResultsScreen {
         <p class="results-cash" data-field="cash"></p>
         <p class="new-best" data-badge hidden>New best!</p>
         <p class="results-message" data-field="message"></p>
+        <p class="results-online" data-online role="status" hidden></p>
         <dl class="results-stats">
           <div><dt>Fresh caught</dt><dd data-field="fresh"></dd></div>
           <div><dt>Rotten caught</dt><dd data-field="rotten"></dd></div>
@@ -208,6 +210,7 @@ export class ResultsScreen {
       lives: field('lives'),
     };
     this.badge = this.element.querySelector('[data-badge]')!;
+    this.online = this.element.querySelector('[data-online]')!;
     this.playAgainButton = this.element.querySelector('[data-play-again]')!;
     this.playAgainButton.addEventListener('click', this.onPlayAgainClick);
     root.append(this.element);
@@ -227,6 +230,8 @@ export class ResultsScreen {
     this.fields.rotten.textContent = String(state.rottenCaught);
     this.fields.lives.textContent = `${state.lives} of ${MAX_LIVES}`;
     this.badge.hidden = !state.isNewBest;
+    // Filled in later if start.ng answers (saving a run is asynchronous).
+    this.setOnlineNote(null);
     this.element.hidden = false;
     this.shows++;
     this.playAgainButton.focus({ preventScroll: true });
@@ -234,6 +239,12 @@ export class ResultsScreen {
 
   hide(): void {
     this.element.hidden = true;
+  }
+
+  // The start.ng leaderboard outcome for this round, or null to hide the line.
+  setOnlineNote(text: string | null): void {
+    this.online.textContent = text ?? '';
+    this.online.hidden = !text;
   }
 
   dispose(): void {
