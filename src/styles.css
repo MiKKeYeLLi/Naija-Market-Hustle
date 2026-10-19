@@ -377,3 +377,80 @@ body {
     display: none;
   }
 }
+
+/* Results (NMH-17). */
+.results-reason {
+  margin: -0.5rem 0 1rem;
+  color: var(--ink-soft);
+}
+
+.results-cash-label {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.results-cash {
+  margin: 0.15rem 0 0.5rem;
+  font-size: clamp(2.4rem, 12vw, 3.25rem);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.new-best {
+  display: inline-block;
+  margin: 0 0 0.75rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: #f9c80e;
+  color: var(--ink);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0.2rem 0 #b38b00;
+}
+
+.new-best[hidden] {
+  display: none;
+}
+
+.results-message {
+  margin: 0 0 1.1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.results-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+}
+
+/* Value pinned to the bottom of each box, so the numbers line up even when a label wraps. */
+.results-stats div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.6rem 0.25rem;
+  border-radius: 0.75rem;
+  background: rgb(233 201 143 / 0.35);
+}
+
+.results-stats dt {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.results-stats dd {
+  margin: 0.2rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}

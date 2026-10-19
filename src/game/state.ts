@@ -32,6 +32,8 @@ export interface GameState {
   freshCaught: number;
   rottenCaught: number;
   endReason: EndReason | null;
+  // Set once when the round ends: did this round's cash beat the best from before it?
+  isNewBest: boolean;
   bestScore: number;
 }
 
@@ -47,6 +49,7 @@ export function createInitialState(bestScore = 0): GameState {
     freshCaught: 0,
     rottenCaught: 0,
     endReason: null,
+    isNewBest: false,
     bestScore,
   };
 }
