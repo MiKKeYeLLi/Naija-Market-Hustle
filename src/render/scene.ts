@@ -18,6 +18,8 @@ export interface SceneContext {
   setTopInset(pixels: number): void;
   // Static scenery behind the play plane: drawn once per resize, not every frame.
   setBackdrop(object: THREE.Object3D): void;
+  // Re-fits and redraws everything, including the backdrop (after a lost WebGL context returns).
+  refresh(): void;
   render(): void;
   dispose(): void;
 }
@@ -97,6 +99,9 @@ export function createScene(canvas: HTMLCanvasElement, backdropCanvas?: HTMLCanv
   // The copy happens in the same task as the render, so no preserveDrawingBuffer is needed.
   function drawBackdrop(): void {
     if (!backdropCanvas || !backdropContext || backdropScene.children.length === 0) return;
+    // While the WebGL context is lost a render draws nothing; copying it would blank the backdrop.
+    // refresh() redraws once the context is back.
+    if (renderer.getContext().isContextLost()) return;
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     if (backdropCanvas.width !== size.x || backdropCanvas.height !== size.y) {
       backdropCanvas.width = size.x;
@@ -176,7 +181,12 @@ export function createScene(canvas: HTMLCanvasElement, backdropCanvas?: HTMLCanv
     renderer.dispose();
   }
 
-  return { renderer, scene, camera, clientToPlayX, playToClient, setTopInset, setBackdrop, render, dispose };
+  function refresh(): void {
+    fit();
+    render();
+  }
+
+  return { renderer, scene, camera, clientToPlayX, playToClient, setTopInset, setBackdrop, refresh, render, dispose };
 }
 
 // Visible with ?debug: play-area outline plus spheres at the corners and centre, to check fit and aspect.
