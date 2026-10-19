@@ -186,15 +186,23 @@ export function moveItems(state: GameState, dt: number): void {
 // Drops the items that have fully left the bottom and returns them, marked resolved like catches, so
 // scoring can charge a life for missed fresh produce exactly once. Run after collision, so a frame
 // that sweeps an item through the mouth and out of the bottom counts it as caught, not missed.
-export function removeExitedItems(state: GameState): FallingItem[] {
-  const exited: FallingItem[] = [];
-  state.items = state.items.filter((item) => {
+export function removeExitedItems(state: GameState): readonly FallingItem[] {
+  let exited: FallingItem[] | null = null;
+  // Compacts the list in place: no new arrays on the usual frame where nothing leaves.
+  let kept = 0;
+  for (const item of state.items) {
     const gone = item.y + ITEM_DEFINITIONS[item.type].height / 2 < PLAY_AREA.bottom;
-    if (gone && !item.resolved) {
-      item.resolved = true;
-      exited.push(item);
+    if (!gone) {
+      state.items[kept++] = item;
+      continue;
     }
-    return !gone;
-  });
-  return exited;
+    if (!item.resolved) {
+      item.resolved = true;
+      (exited ??= []).push(item);
+    }
+  }
+  state.items.length = kept;
+  return exited ?? NO_ITEMS;
 }
+
+const NO_ITEMS: readonly FallingItem[] = Object.freeze([]);

@@ -158,10 +158,21 @@ export function createScene(canvas: HTMLCanvasElement, backdropCanvas?: HTMLCanv
   window.visualViewport?.addEventListener('resize', onResize);
   fit();
 
+  // Last step of teardown: frees anything still attached to either scene (the ?debug frame, or
+  // anything an owner forgot), then the WebGL context itself.
   function dispose(): void {
     window.removeEventListener('resize', onResize);
     window.removeEventListener('orientationchange', onResize);
     window.visualViewport?.removeEventListener('resize', onResize);
+    for (const root of [scene, backdropScene]) {
+      root.traverse((object) => {
+        const drawable = object as Partial<THREE.Mesh>;
+        drawable.geometry?.dispose();
+        const materials = drawable.material ? ([] as THREE.Material[]).concat(drawable.material) : [];
+        for (const material of materials) material.dispose();
+      });
+      root.clear();
+    }
     renderer.dispose();
   }
 

@@ -52,15 +52,23 @@ export function sweptCatchRect(item: FallingItem, previousY: number): Rect {
 // Removes every item caught this frame and returns them, each marked resolved before any effect
 // is applied, so no later frame or second call can count it again. `dt` is the frame's fall time,
 // used to recover where each item was before this frame's move.
-export function catchItems(state: GameState, dt: number): FallingItem[] {
+export function catchItems(state: GameState, dt: number): readonly FallingItem[] {
   const mouth = mouthRect(state.basketX);
-  const caught: FallingItem[] = [];
-  state.items = state.items.filter((item) => {
-    if (item.resolved) return false;
-    if (!overlaps(sweptCatchRect(item, item.y + item.speed * dt), mouth)) return true;
-    item.resolved = true;
-    caught.push(item);
-    return false;
-  });
-  return caught;
+  let caught: FallingItem[] | null = null;
+  // Compacts the list in place: no new arrays on the usual frame where nothing is caught.
+  let kept = 0;
+  for (const item of state.items) {
+    if (item.resolved) continue;
+    if (overlaps(sweptCatchRect(item, item.y + item.speed * dt), mouth)) {
+      item.resolved = true;
+      (caught ??= []).push(item);
+      continue;
+    }
+    state.items[kept++] = item;
+  }
+  state.items.length = kept;
+  return caught ?? NO_CATCHES;
 }
+
+// Shared empty result for frames where nothing happened.
+const NO_CATCHES: readonly FallingItem[] = Object.freeze([]);

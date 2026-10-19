@@ -603,3 +603,17 @@ body {
     animation: none;
   }
 }
+
+/* ?perf readout (NMH-23): bottom-left, never takes input. */
+.perf-overlay {
+  position: absolute;
+  left: 8px;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.7);
+  color: #b7ffb0;
+  font: 600 11px / 1.4 ui-monospace, 'Cascadia Mono', Menlo, monospace;
+  white-space: pre;
+  pointer-events: none;
+}

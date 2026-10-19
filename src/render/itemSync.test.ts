@@ -37,3 +37,45 @@ describe('ItemMeshSync', () => {
     expect(hazard.rotation.z).toBe(0);
   });
 });
+
+describe('ItemMeshSync pooling', () => {
+  it('reuses parked models, so models built stay at the most ever on screen at once', () => {
+    const scene = new THREE.Scene();
+    const sync = new ItemMeshSync(scene);
+    let id = 1;
+    // 200 waves of three tomatoes and a rotten pepper, each wave replacing the last.
+    for (let wave = 0; wave < 200; wave++) {
+      sync.sync([item(id++, 'tomato'), item(id++, 'tomato'), item(id++, 'tomato'), item(id++, 'rottenPepper')], wave * 0.1);
+    }
+    expect(sync.size).toBe(4);
+    expect(scene.children).toHaveLength(4);
+    // Two waves overlap during the swap, at most: 3+3 tomatoes and 1+1 peppers.
+    expect(sync.created).toBeLessThanOrEqual(8);
+    sync.clear();
+    expect(scene.children).toHaveLength(0);
+    expect(sync.pooled).toBe(sync.created);
+  });
+
+  it('gives a reused hazard model a fresh wobble phase and no leftover tilt', () => {
+    const scene = new THREE.Scene();
+    const sync = new ItemMeshSync(scene);
+    sync.sync([item(1, 'rottenTomato')], 0.3);
+    const model = scene.children[0];
+    expect(model.rotation.z).not.toBe(0);
+    sync.sync([], 0.3);
+    sync.sync([item(2, 'rottenTomato')], 0.3, 0);
+    expect(scene.children[0]).toBe(model);
+    expect(model.userData.phase).toBe(2);
+    expect(Math.abs(model.rotation.z)).toBe(0); // sin(..) x 0 can be -0
+  });
+
+  it('never hands a parked model to a different item type', () => {
+    const scene = new THREE.Scene();
+    const sync = new ItemMeshSync(scene);
+    sync.sync([item(1, 'corn')], 0);
+    sync.sync([], 0);
+    sync.sync([item(2, 'onion')], 0);
+    expect(scene.children[0].userData.type).toBe('onion');
+    expect(sync.created).toBe(2);
+  });
+});
