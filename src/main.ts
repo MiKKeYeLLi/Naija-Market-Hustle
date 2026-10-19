@@ -3,6 +3,7 @@ import { KeyboardControls, PauseControls, PointerControls } from './game/control
 import { ITEM_TYPES } from './game/items';
 import { BASKET_Y } from './game/playArea';
 import { loadBestScore, loadSoundOn, saveBestScore, saveSoundOn } from './game/storage';
+import { createEnvironment } from './render/environment';
 import { ItemMeshSync } from './render/itemSync';
 import { animateItemModel, createBasketModel, createItemModel } from './render/models';
 import { createScene } from './render/scene';
@@ -15,7 +16,10 @@ const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
 if (!canvas) throw new Error('Missing #game-canvas element');
 
 const params = new URLSearchParams(window.location.search);
-const view = createScene(canvas);
+const view = createScene(canvas, document.querySelector<HTMLCanvasElement>('#backdrop-canvas') ?? undefined);
+
+// Static market backdrop behind the play plane, drawn once per resize rather than every frame.
+view.setBackdrop(createEnvironment().group);
 
 const basket = createBasketModel();
 basket.position.y = BASKET_Y;

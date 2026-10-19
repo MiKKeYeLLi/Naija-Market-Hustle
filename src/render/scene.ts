@@ -14,6 +14,8 @@ export interface SceneContext {
   clientToPlayX(clientX: number): number;
   // Reserve pixels at the top (the HUD strip) so the play area fits below them.
   setTopInset(pixels: number): void;
+  // Static scenery behind the play plane: drawn once per resize, not every frame.
+  setBackdrop(object: THREE.Object3D): void;
   render(): void;
   dispose(): void;
 }
@@ -43,14 +45,20 @@ export function computeFit(width: number, height: number, topInset = 0): FitResu
   };
 }
 
-export function createScene(canvas: HTMLCanvasElement): SceneContext {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// `backdropCanvas` (optional) is a 2D canvas behind the game canvas. Static scenery given to
+// setBackdrop() is drawn into it once per resize instead of every frame; the game canvas stays
+// transparent and each frame draws only what moves.
+export function createScene(canvas: HTMLCanvasElement, backdropCanvas?: HTMLCanvasElement): SceneContext {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
+  const backdropScene = new THREE.Scene();
+  const backdropContext = backdropCanvas?.getContext('2d') ?? null;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   // Blob shadows only (NMH-07), so real-time shadow maps stay off.
   renderer.shadowMap.enabled = false;
 
+  // No background: the game canvas is transparent over the backdrop canvas (or the page colour).
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#f6c27a');
 
   const camera = new THREE.PerspectiveCamera(FOV_DEGREES, 1, 0.1, 200);
 
@@ -80,6 +88,29 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     unitsPerPixel = result.unitsPerPixel;
     camera.position.set(0, result.cameraY, result.distance);
     camera.lookAt(0, result.cameraY, 0);
+    drawBackdrop();
+  }
+
+  // Renders the static scenery once with the current camera and copies it to the backdrop canvas.
+  // The copy happens in the same task as the render, so no preserveDrawingBuffer is needed.
+  function drawBackdrop(): void {
+    if (!backdropCanvas || !backdropContext || backdropScene.children.length === 0) return;
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    if (backdropCanvas.width !== size.x || backdropCanvas.height !== size.y) {
+      backdropCanvas.width = size.x;
+      backdropCanvas.height = size.y;
+    }
+    renderer.render(backdropScene, camera);
+    backdropContext.clearRect(0, 0, size.x, size.y);
+    backdropContext.drawImage(renderer.domElement, 0, 0);
+    // Put the live scene back on the game canvas straight away.
+    renderer.render(scene, camera);
+  }
+
+  function setBackdrop(object: THREE.Object3D): void {
+    backdropScene.add(object);
+    if (!backdropContext) scene.add(object); // no backdrop canvas: draw it live instead
+    drawBackdrop();
   }
 
   function setTopInset(pixels: number): void {
@@ -122,7 +153,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     renderer.dispose();
   }
 
-  return { renderer, scene, camera, clientToPlayX, setTopInset, render, dispose };
+  return { renderer, scene, camera, clientToPlayX, setTopInset, setBackdrop, render, dispose };
 }
 
 // Visible with ?debug: play-area outline plus spheres at the corners and centre, to check fit and aspect.
