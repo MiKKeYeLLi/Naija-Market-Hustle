@@ -12,6 +12,8 @@ export interface SceneContext {
   camera: THREE.PerspectiveCamera;
   // Maps a pointer's clientX to x on the play plane (z = 0).
   clientToPlayX(clientX: number): number;
+  // Maps a point on the play plane (z = 0) to client pixels, for DOM overlays such as cash labels.
+  playToClient(x: number, y: number): { x: number; y: number };
   // Reserve pixels at the top (the HUD strip) so the play area fits below them.
   setTopInset(pixels: number): void;
   // Static scenery behind the play plane: drawn once per resize, not every frame.
@@ -136,6 +138,16 @@ export function createScene(canvas: HTMLCanvasElement, backdropCanvas?: HTMLCanv
   }
 
   // The camera looks straight down the z axis (x = 0), so the play plane maps linearly to the canvas.
+  const projected = new THREE.Vector3();
+  function playToClient(x: number, y: number): { x: number; y: number } {
+    const rect = canvas.getBoundingClientRect();
+    projected.set(x, y, 0).project(camera);
+    return {
+      x: rect.left + ((projected.x + 1) / 2) * rect.width,
+      y: rect.top + ((1 - projected.y) / 2) * rect.height,
+    };
+  }
+
   function clientToPlayX(clientX: number): number {
     const rect = canvas.getBoundingClientRect();
     return (clientX - rect.left - rect.width / 2) * unitsPerPixel;
@@ -153,7 +165,7 @@ export function createScene(canvas: HTMLCanvasElement, backdropCanvas?: HTMLCanv
     renderer.dispose();
   }
 
-  return { renderer, scene, camera, clientToPlayX, setTopInset, setBackdrop, render, dispose };
+  return { renderer, scene, camera, clientToPlayX, playToClient, setTopInset, setBackdrop, render, dispose };
 }
 
 // Visible with ?debug: play-area outline plus spheres at the corners and centre, to check fit and aspect.

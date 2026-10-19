@@ -464,3 +464,142 @@ body {
   font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
+
+/* Feedback (NMH-21). Each effect is a one-shot animation restarted on a pooled element. */
+.cash-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font: 900 clamp(1.05rem, 5vw, 1.35rem) / 1 var(--font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.cash-label[data-tone='gain'] {
+  background: #fff6e3;
+  color: #17672f;
+  box-shadow: 0 0.15rem 0 #17672f;
+}
+
+.cash-label[data-tone='loss'] {
+  background: #b3261e;
+  color: #fff6e3;
+  box-shadow: 0 0.15rem 0 #6d1510;
+}
+
+.cash-label.is-floating {
+  animation: label-float 800ms ease-out forwards;
+}
+
+.cash-label.is-still {
+  animation: label-fade 900ms linear forwards;
+}
+
+@keyframes label-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1.06);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 64px)) scale(1);
+  }
+}
+
+@keyframes label-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.penalty-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgb(179 38 30 / 0) 35%, rgb(179 38 30 / 0.55) 100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.penalty-flash.is-flashing {
+  animation: penalty-flash 260ms ease-out forwards;
+}
+
+@keyframes penalty-flash {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 160 ms, matching SHAKE_MS (under the 200 ms limit). Both canvases shake so the static backdrop
+   moves with the scene. */
+#backdrop-canvas.is-shaking,
+#game-canvas.is-shaking {
+  animation: screen-shake 160ms linear;
+}
+
+@keyframes screen-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-6px, 2px);
+  }
+  40% {
+    transform: translate(5px, -3px);
+  }
+  60% {
+    transform: translate(-4px, 2px);
+  }
+  80% {
+    transform: translate(3px, -1px);
+  }
+}
+
+/* Heart loss: the heart pops and drops to its empty outline. */
+.heart.is-lost {
+  animation: heart-lose 420ms ease-out;
+}
+
+@keyframes heart-lose {
+  0% {
+    transform: scale(1);
+    fill: #ff5a4e;
+  }
+  35% {
+    transform: scale(1.45) rotate(-8deg);
+    fill: #ff5a4e;
+  }
+  100% {
+    transform: scale(0.85);
+    fill: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart.is-lost,
+  .penalty-flash.is-flashing,
+  #backdrop-canvas.is-shaking,
+  #game-canvas.is-shaking {
+    animation: none;
+  }
+}
