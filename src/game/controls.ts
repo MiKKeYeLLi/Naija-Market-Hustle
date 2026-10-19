@@ -143,3 +143,62 @@ export class KeyboardControls {
     this.releaseAll();
   };
 }
+
+export interface Pausable {
+  readonly state: { readonly status: string };
+  pause(): boolean;
+  resume(): boolean;
+}
+
+type VisibilitySource = Pick<EventTarget, 'addEventListener' | 'removeEventListener'> & {
+  readonly visibilityState: string;
+};
+
+// P and Esc toggle pause; hiding the tab pauses (and never auto-resumes: the player chooses when).
+export class PauseControls {
+  private attached = false;
+
+  constructor(
+    private readonly keys: Pick<EventTarget, 'addEventListener' | 'removeEventListener'>,
+    private readonly page: VisibilitySource,
+    private readonly game: Pausable,
+  ) {}
+
+  get isAttached(): boolean {
+    return this.attached;
+  }
+
+  // Pause if playing, resume if paused; ignored in ready and gameOver.
+  toggle(): boolean {
+    if (this.game.state.status === 'playing') return this.game.pause();
+    if (this.game.state.status === 'paused') return this.game.resume();
+    return false;
+  }
+
+  attach(): void {
+    if (this.attached) return;
+    this.attached = true;
+    this.keys.addEventListener('keydown', this.onKeyDown);
+    this.page.addEventListener('visibilitychange', this.onVisibilityChange);
+  }
+
+  detach(): void {
+    if (!this.attached) return;
+    this.attached = false;
+    this.keys.removeEventListener('keydown', this.onKeyDown);
+    this.page.removeEventListener('visibilitychange', this.onVisibilityChange);
+  }
+
+  private onKeyDown = (event: Event): void => {
+    const key = event as KeyLike & { repeat?: boolean };
+    if (key.code !== 'KeyP' && key.code !== 'Escape') return;
+    if (key.ctrlKey || key.metaKey || key.altKey) return;
+    // Holding the key must not flicker between paused and playing.
+    if (key.repeat) return;
+    if (this.toggle() && key.cancelable) key.preventDefault();
+  };
+
+  private onVisibilityChange = (): void => {
+    if (this.page.visibilityState === 'hidden' && this.game.state.status === 'playing') this.game.pause();
+  };
+}

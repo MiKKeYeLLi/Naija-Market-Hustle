@@ -268,8 +268,49 @@ body {
   min-height: 40px;
 }
 
-.hud-timer {
+.hud-start {
   justify-self: start;
+  gap: 0.5rem;
+}
+
+.hud-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* The one HUD control: opts back in to pointer events, 44 px minimum target. It lives in the
+   reserved HUD strip, so it never sits over falling items. */
+.hud-pause {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -6px;
+  padding: 0;
+  border: 2px solid rgb(255 246 227 / 0.5);
+  border-radius: 12px;
+  background: rgb(255 246 227 / 0.12);
+  color: #fff6e3;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.hud-pause svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.hud-pause:focus-visible {
+  outline: 3px solid #fff6e3;
+  outline-offset: 2px;
+}
+
+.hud-pause:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .hud-cash {
@@ -319,5 +360,20 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .heart {
     transition: none;
+  }
+}
+
+/* Pause overlay (NMH-16). */
+.screen-note {
+  margin: 0 0 1.25rem;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+/* Keyboard hints only where there is likely a keyboard. */
+@media (hover: none) and (pointer: coarse) {
+  .key-hint {
+    display: none;
   }
 }

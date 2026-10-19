@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Game, type FrameScheduler } from '../game/Game';
 import { ROUND_DURATION, createInitialState, type GameState } from '../game/state';
 import { Hud, hudValues } from './hud';
@@ -102,12 +102,52 @@ describe('Hud', () => {
     observer.disconnect();
   });
 
-  it('has nothing focusable or clickable inside it (yet)', () => {
+  it('has exactly one control inside it: the pause button', () => {
     // pointer-events: none lives in the stylesheet, which happy-dom does not load; the live check
-    // (a real touch on the HUD moving the basket) covers it. Here: nothing inside opts back in.
+    // (a real touch on the HUD moving the basket) covers it. Here: only the pause button opts in.
     const { root } = mount();
-    const element = root.querySelector<HTMLElement>('.hud')!;
-    expect(element.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+    const controls = root.querySelectorAll('.hud button, .hud a, .hud input, .hud [tabindex]');
+    expect([...controls].map((c) => c.getAttribute('aria-label'))).toEqual(['Pause']);
+  });
+});
+
+describe('Hud pause button', () => {
+  function mountWithPause() {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const onPause = vi.fn();
+    const hud = new Hud(root, { onPause });
+    hud.show();
+    const button = root.querySelector<HTMLButtonElement>('[data-pause]')!;
+    return { hud, button, onPause };
+  }
+
+  it('is disabled until a round is playing, then calls onPause', () => {
+    const { hud, button, onPause } = mountWithPause();
+    expect(button.disabled).toBe(true);
+    button.click();
+    expect(onPause).not.toHaveBeenCalled();
+
+    hud.setPausable(true);
+    button.click();
+    expect(onPause).toHaveBeenCalledTimes(1);
+
+    hud.setPausable(false);
+    expect(button.disabled).toBe(true);
+  });
+
+  it('has an accessible name', () => {
+    const { button } = mountWithPause();
+    expect(button.getAttribute('aria-label')).toBe('Pause');
+    expect(button.type).toBe('button');
+  });
+
+  it('stops calling back after dispose', () => {
+    const { hud, button, onPause } = mountWithPause();
+    hud.setPausable(true);
+    hud.dispose();
+    button.click();
+    expect(onPause).not.toHaveBeenCalled();
   });
 });
 
