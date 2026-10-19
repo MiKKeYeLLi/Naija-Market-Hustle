@@ -46,11 +46,14 @@ describe('difficulty curve', () => {
 
   it('has no jump anywhere, including the phase boundaries', () => {
     // Largest per-step change in any segment is (anchor delta / 30 s) x step; a jump would dwarf it.
+    // Track the largest step and assert once: 90,000 steps x 3 expects timed out on a busy machine.
     const step = 0.001;
+    let largest = 0;
     for (let t = ROUND_DURATION; t > step; t -= step) {
       const [now, next] = [difficultyAt(t), difficultyAt(t - step)];
-      for (const key of KEYS) expect(Math.abs(next[key] - now[key])).toBeLessThan(0.0002);
+      for (const key of KEYS) largest = Math.max(largest, Math.abs(next[key] - now[key]));
     }
+    expect(largest).toBeLessThan(0.0002);
     for (const boundary of [60, 30]) {
       const [before, after] = [difficultyAt(boundary + 1e-9), difficultyAt(boundary - 1e-9)];
       for (const key of KEYS) expect(after[key]).toBeCloseTo(before[key], 6);
