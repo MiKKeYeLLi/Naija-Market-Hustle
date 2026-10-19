@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SoundBoard, type SoundContext } from './audio';
+import { MUSIC_VOLUME, SoundBoard, type MusicElement, type SoundContext } from './audio';
 
 interface Note {
   type: string;
@@ -182,5 +182,139 @@ describe('without Web Audio', () => {
     board.unlock();
     expect(() => board.play('gameOver')).not.toThrow();
     expect(board.play('gameOver')).toBe(false);
+  });
+});
+
+describe('background music', () => {
+  // A stand-in <audio> element that records what the game asks of it.
+  function fakeMusic() {
+    const calls: string[] = [];
+    const element = {
+      loop: false,
+      preload: 'none' as HTMLMediaElement['preload'],
+      currentTime: 37,
+      volume: 1,
+      playing: false,
+      play() {
+        calls.push('play');
+        element.playing = true;
+        return Promise.resolve();
+      },
+      pause() {
+        calls.push('pause');
+        element.playing = false;
+      },
+    };
+    return { element, calls };
+  }
+
+  function setupMusic(options: { enabled?: boolean; webAudio?: boolean } = {}) {
+    const { element, calls } = fakeMusic();
+    const fake = fakeContext();
+    const routed: number[] = [];
+    if (options.webAudio !== false) {
+      (fake.context as unknown as { createMediaElementSource: unknown }).createMediaElementSource = () => ({
+        connect: (gain: { gain: { value: number } }) => {
+          routed.push(gain.gain.value);
+          return gain;
+        },
+      });
+    }
+    let created = 0;
+    const board = new SoundBoard({
+      enabled: options.enabled ?? true,
+      createContext: () => fake.context,
+      musicSrc: './assets/music.mp3',
+      createMusicElement: (src) => {
+        created++;
+        expect(src).toBe('./assets/music.mp3');
+        return element as unknown as MusicElement;
+      },
+    });
+    return { board, element, calls, routed, created: () => created };
+  }
+
+  it('requests nothing before the first tap', () => {
+    const { board, calls, created } = setupMusic();
+    board.setMusicPlaying(true, true);
+    expect(created()).toBe(0);
+    expect(calls).toEqual([]);
+    expect(board.isMusicPlaying).toBe(false);
+  });
+
+  it('loops the track and routes it through Web Audio at the music volume', () => {
+    const { board, element, routed } = setupMusic();
+    board.unlock();
+    expect(element.loop).toBe(true);
+    expect(element.preload).toBe('auto');
+    expect(routed).toEqual([MUSIC_VOLUME]);
+    expect(element.volume).toBe(1); // untouched: volume is set on the gain node instead
+  });
+
+  it('falls back to the element volume without Web Audio', () => {
+    const { board, element } = setupMusic({ webAudio: false });
+    board.unlock();
+    expect(element.volume).toBe(MUSIC_VOLUME);
+  });
+
+  it('plays during a round, rewinds for a new round, and keeps its place after a pause', () => {
+    const { board, element } = setupMusic();
+    board.unlock();
+    expect(element.playing).toBe(false); // the start screen is quiet
+
+    board.setMusicPlaying(true, true); // new round
+    expect(element.playing).toBe(true);
+    expect(element.currentTime).toBe(0);
+
+    element.currentTime = 42;
+    board.setMusicPlaying(false); // paused
+    expect(element.playing).toBe(false);
+    board.setMusicPlaying(true); // resumed: no rewind
+    expect(element.currentTime).toBe(42);
+    expect(element.playing).toBe(true);
+
+    board.setMusicPlaying(false); // game over
+    expect(element.playing).toBe(false);
+  });
+
+  it('starts at once if the round began in the unlocking tap', () => {
+    const { board, element } = setupMusic();
+    board.setMusicPlaying(true, true);
+    board.unlock();
+    expect(element.playing).toBe(true);
+  });
+
+  it('is silenced by the sound toggle and comes back when it is turned on mid-round', () => {
+    const { board, element } = setupMusic({ enabled: false });
+    board.unlock();
+    board.setMusicPlaying(true, true);
+    expect(element.playing).toBe(false);
+    board.setEnabled(true);
+    expect(element.playing).toBe(true);
+    board.setEnabled(false);
+    expect(element.playing).toBe(false);
+  });
+
+  it('does not start when sound is turned on between rounds', () => {
+    const { board, element } = setupMusic({ enabled: false });
+    board.unlock();
+    board.setEnabled(true);
+    expect(element.playing).toBe(false);
+  });
+
+  it('never throws if the browser refuses to play', async () => {
+    const { board, element } = setupMusic();
+    element.play = () => Promise.reject(new DOMException('NotAllowedError'));
+    board.unlock();
+    expect(() => board.setMusicPlaying(true, true)).not.toThrow();
+    await Promise.resolve();
+  });
+
+  it('stops on dispose', () => {
+    const { board, element } = setupMusic();
+    board.unlock();
+    board.setMusicPlaying(true, true);
+    board.dispose();
+    expect(element.playing).toBe(false);
   });
 });
