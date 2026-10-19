@@ -3,9 +3,9 @@
 import { catchItems } from './collision';
 import { createItemIdMinter } from './items';
 import { BASKET_MAX_SPEED, clampBasketX } from './playArea';
-import { applyCatch, applyMiss, roundEndReason } from './rules';
+import { applyCatch, applyMiss, roundEndReason, type Effect } from './rules';
 import { Spawner, moveItems, phaseAt, removeExitedItems, type Phase } from './spawner';
-import { createInitialState, type EndReason, type GameState, type GameStatus } from './state';
+import { createInitialState, type EndReason, type FallingItem, type GameState, type GameStatus } from './state';
 
 // A stalled or backgrounded tab can deliver one huge frame gap; never simulate more than this at once.
 export const MAX_STEP_MS = 50;
@@ -30,6 +30,13 @@ const browserScheduler: FrameScheduler = {
 };
 
 // Held-key steering, read once per step. Released whenever the round stops playing.
+// A catch, or an item leaving the bottom (a fresh miss costs a life; a hazard miss costs nothing).
+export interface FeedbackEvent {
+  type: 'catch' | 'miss';
+  item: Readonly<FallingItem>;
+  applied: Required<Effect>;
+}
+
 export interface SteeringInput {
   direction(): number; // -1 left, 0 none, 1 right
   releaseAll(): void;
@@ -50,6 +57,9 @@ export interface GameOptions {
   // The single round teardown: called on every reset (Play Again, Restart), after the old loop has
   // stopped and before the fresh round's state and loop exist. Clear per-round visuals here.
   onReset?(): void;
+  // Every catch and every miss, with the change that actually landed after clamping. Fired during
+  // the step, so effects start in the same frame the item disappears.
+  onFeedback?(event: FeedbackEvent): void;
 }
 
 export class Game {
@@ -179,8 +189,14 @@ export class Game {
     // - catch before removing exits, so a sweep through the mouth and out of the bottom is a catch.
     // Caught items leave the list this frame, so their meshes go in the same render.
     moveItems(this.current, dt);
-    for (const item of catchItems(this.current, dt)) applyCatch(this.current, item);
-    for (const item of removeExitedItems(this.current)) applyMiss(this.current, item);
+    for (const item of catchItems(this.current, dt)) {
+      const applied = applyCatch(this.current, item);
+      this.options.onFeedback?.({ type: 'catch', item, applied });
+    }
+    for (const item of removeExitedItems(this.current)) {
+      const applied = applyMiss(this.current, item);
+      this.options.onFeedback?.({ type: 'miss', item, applied });
+    }
     this.current.timeRemaining = Math.max(0, this.current.timeRemaining - dt);
 
     // One end check after every change this frame, so a last life and the timer running out

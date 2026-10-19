@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Game, type FrameScheduler } from './Game';
+import { Game, type FeedbackEvent, type FrameScheduler } from './Game';
 import { FRESH_ITEMS, HAZARD_ITEMS, ITEM_DEFINITIONS, type ItemTypeId } from './items';
 import { BASKET_MOUTH, PLAY_AREA } from './playArea';
 import { applyCatch, applyEffect, applyMiss } from './rules';
@@ -180,5 +180,45 @@ describe('through the game loop', () => {
     frame();
     expect(state.cash).toBe(0);
     expect(game.state.status).toBe('playing');
+  });
+});
+
+describe('feedback events', () => {
+  it('reports each catch and miss with the change that actually landed', () => {
+    let time = 0;
+    let queued: (() => void) | null = null;
+    const scheduler: FrameScheduler = { now: () => time, request: (cb) => ((queued = cb), 1), cancel: () => (queued = null) };
+    const events: FeedbackEvent[] = [];
+    const game = new Game({ scheduler, random: () => 0.99, onFeedback: (e) => events.push(e) });
+    const frame = () => {
+      time += 16;
+      const cb = queued;
+      queued = null;
+      cb?.();
+    };
+    frame();
+    game.start();
+    frame();
+    const state = game.state as GameState;
+    const run = (target: FallingItem) => {
+      state.items = [target];
+      for (let i = 0; i < 400 && !target.resolved; i++) {
+        frame();
+        state.items = state.items.filter((it) => it === target);
+      }
+    };
+
+    state.cash = 0;
+    run(item('rottenTomato', 0, BASKET_MOUTH.centerY + 1.5, 6)); // caught at ₦0
+    run(item('pepper', 0, BASKET_MOUTH.centerY + 1.5, 6)); // caught
+    run(item('onion', 3.6, BASKET_MOUTH.centerY, 8)); // missed
+    run(item('rottenPepper', -3.6, BASKET_MOUTH.centerY, 8)); // missed hazard
+
+    expect(events.map((e) => [e.type, e.item.type, e.applied.cash, e.applied.lives])).toEqual([
+      ['catch', 'rottenTomato', 0, -1],
+      ['catch', 'pepper', 150, 0],
+      ['miss', 'onion', 0, -1],
+      ['miss', 'rottenPepper', 0, 0],
+    ]);
   });
 });
