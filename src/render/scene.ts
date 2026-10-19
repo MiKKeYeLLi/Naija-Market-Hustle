@@ -12,8 +12,35 @@ export interface SceneContext {
   camera: THREE.PerspectiveCamera;
   // Maps a pointer's clientX to x on the play plane (z = 0).
   clientToPlayX(clientX: number): number;
+  // Reserve pixels at the top (the HUD strip) so the play area fits below them.
+  setTopInset(pixels: number): void;
   render(): void;
   dispose(): void;
+}
+
+export interface FitResult {
+  // Play-area units per CSS pixel on the play plane (z = 0), the same on both axes.
+  unitsPerPixel: number;
+  // Camera height: lifted so the play area centres in the space below the top inset.
+  cameraY: number;
+  // Camera distance for the fixed FOV.
+  distance: number;
+}
+
+// Keeps the FOV fixed and pulls the camera back until the whole play area (plus margin) fits in the
+// canvas below `topInset` pixels. Tall screens are limited by width, wide screens by height.
+export function computeFit(width: number, height: number, topInset = 0): FitResult {
+  const usableHeight = Math.max(1, height - topInset);
+  const neededHeight = PLAY_AREA.height * (1 + FIT_MARGIN);
+  const neededWidth = PLAY_AREA.width * (1 + FIT_MARGIN);
+  const unitsPerPixel = Math.max(neededHeight / usableHeight, neededWidth / width);
+  const visibleHalfHeight = (unitsPerPixel * height) / 2;
+  return {
+    unitsPerPixel,
+    // Moving the camera up by half the inset (in units) moves the play area down by the same amount.
+    cameraY: (unitsPerPixel * topInset) / 2,
+    distance: visibleHalfHeight / Math.tan(THREE.MathUtils.degToRad(FOV_DEGREES / 2)),
+  };
 }
 
 export function createScene(canvas: HTMLCanvasElement): SceneContext {
@@ -36,8 +63,9 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     scene.add(createDebugFrame());
   }
 
-  // Half the world-space height visible at z = 0; set by fit().
-  let visibleHalfHeight = PLAY_AREA.height / 2;
+  // Pixels at the top of the canvas reserved for the HUD; set by setTopInset().
+  let topInset = 0;
+  let unitsPerPixel = 1;
 
   function fit(): void {
     const width = window.innerWidth;
@@ -45,18 +73,20 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
     renderer.setSize(width, height, false);
 
-    const aspect = width / height;
-    camera.aspect = aspect;
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    // Keep the FOV fixed and pull the camera back until the whole play area fits.
-    // Tall screens are limited by width, wide screens by height.
-    const halfHeight = (PLAY_AREA.height / 2) * (1 + FIT_MARGIN);
-    const halfWidth = (PLAY_AREA.width / 2) * (1 + FIT_MARGIN);
-    visibleHalfHeight = Math.max(halfHeight, halfWidth / aspect);
-    const distance = visibleHalfHeight / Math.tan(THREE.MathUtils.degToRad(FOV_DEGREES / 2));
-    camera.position.set(0, 0, distance);
-    camera.lookAt(0, 0, 0);
+    const result = computeFit(width, height, topInset);
+    unitsPerPixel = result.unitsPerPixel;
+    camera.position.set(0, result.cameraY, result.distance);
+    camera.lookAt(0, result.cameraY, 0);
+  }
+
+  function setTopInset(pixels: number): void {
+    const next = Math.max(0, Math.round(pixels));
+    if (next === topInset) return;
+    topInset = next;
+    onResize();
   }
 
   let resizeQueued = false;
@@ -74,10 +104,9 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     renderer.render(scene, camera);
   }
 
-  // The camera sits on the z axis looking at the origin, so the play plane maps linearly to the canvas.
+  // The camera looks straight down the z axis (x = 0), so the play plane maps linearly to the canvas.
   function clientToPlayX(clientX: number): number {
     const rect = canvas.getBoundingClientRect();
-    const unitsPerPixel = (visibleHalfHeight * 2) / rect.height;
     return (clientX - rect.left - rect.width / 2) * unitsPerPixel;
   }
 
@@ -93,7 +122,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     renderer.dispose();
   }
 
-  return { renderer, scene, camera, clientToPlayX, render, dispose };
+  return { renderer, scene, camera, clientToPlayX, setTopInset, render, dispose };
 }
 
 // Visible with ?debug: play-area outline plus spheres at the corners and centre, to check fit and aspect.

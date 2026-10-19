@@ -7,6 +7,7 @@ import { ItemMeshSync } from './render/itemSync';
 import { animateItemModel, createBasketModel, createItemModel } from './render/models';
 import { createScene } from './render/scene';
 import { PhaseBanner } from './ui/banner';
+import { Hud } from './ui/hud';
 import { StartScreen } from './ui/screens';
 import './styles.css';
 
@@ -40,6 +41,13 @@ const uiRoot = document.querySelector<HTMLElement>('#ui-root');
 if (!uiRoot) throw new Error('Missing #ui-root element');
 const banner = new PhaseBanner(uiRoot);
 
+// Always shown (under the start screen's veil too), so the space the scene reserves for it never
+// changes when a round starts and the play area never jumps.
+const hud = new Hud(uiRoot);
+hud.show();
+// Fit the play area below the HUD strip, tracking its real height (safe areas, font scaling).
+new ResizeObserver(() => view.setTopInset(hud.height)).observe(hud.element);
+
 // The round only starts from this button: the timer stays at 90 in `ready` until it is pressed.
 const startScreen = new StartScreen(uiRoot, {
   soundOn: loadSoundOn(),
@@ -59,6 +67,7 @@ const game = new Game({
     if (status === 'playing') startScreen.hide();
   },
   render: (state) => {
+    hud.update(state);
     basket.position.x = state.basketX;
     const seconds = performance.now() / 1000;
     items.sync(state.items, seconds);
