@@ -47,6 +47,9 @@ export interface GameOptions {
   random?: () => number;
   // Saved best from a previous visit; carried through every reset.
   bestScore?: number;
+  // The single round teardown: called on every reset (Play Again, Restart), after the old loop has
+  // stopped and before the fresh round's state and loop exist. Clear per-round visuals here.
+  onReset?(): void;
 }
 
 export class Game {
@@ -95,10 +98,12 @@ export class Game {
     return true;
   }
 
-  // Fresh round state in `ready`; the best score carries over. Always allowed.
+  // Fresh round state in `ready`; the best score carries over. Always allowed. Everything a round
+  // owns is torn down here, in one place: the loop, held keys, spawner state and (via onReset) visuals.
   reset(): void {
     this.stopLoop();
     this.options.steering?.releaseAll();
+    this.options.onReset?.();
     const previous = this.current.status;
     this.current = createInitialState(this.current.bestScore);
     this.spawner.reset();

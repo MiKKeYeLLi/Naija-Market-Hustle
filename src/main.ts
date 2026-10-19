@@ -76,6 +76,12 @@ const pauseScreen = new PauseScreen(uiRoot, {
 const game = new Game({
   steering: keyboard,
   bestScore: loadBestScore(),
+  // Per-round visuals go with the round, immediately rather than on the next frame. Controls,
+  // screens and the HUD are created once for the page and never re-attached, so nothing piles up.
+  onReset: () => {
+    items.clear();
+    banner.hide();
+  },
   onPhaseChange: (phase) => banner.show(phase),
   onStatusChange: (status) => {
     // A banner never lingers over an overlay, the results or a fresh round.
@@ -110,7 +116,7 @@ startScreen.show(game.state.bestScore);
 
 // ?debug exposes the game objects to the console, e.g. game.state.
 if (params.has('debug')) {
-  Object.assign(window, { game, pointer, keyboard });
+  Object.assign(window, { game, pointer, keyboard, view, items });
 }
 // ?autostart skips the start screen and begins a round on load (development shortcut).
 if (params.has('autostart')) game.start();
