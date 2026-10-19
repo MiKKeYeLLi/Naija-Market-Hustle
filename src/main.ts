@@ -2,7 +2,7 @@ import { Game } from './game/Game';
 import { KeyboardControls, PauseControls, PointerControls } from './game/controls';
 import { ITEM_TYPES } from './game/items';
 import { BASKET_Y } from './game/playArea';
-import { loadBestScore, loadSoundOn, saveSoundOn } from './game/storage';
+import { loadBestScore, loadSoundOn, saveBestScore, saveSoundOn } from './game/storage';
 import { ItemMeshSync } from './render/itemSync';
 import { animateItemModel, createBasketModel, createItemModel } from './render/models';
 import { createScene } from './render/scene';
@@ -90,6 +90,9 @@ const game = new Game({
     if (status === 'playing') startScreen.hide();
     if (status === 'paused') pauseScreen.show();
     else pauseScreen.hide();
+    // Game has already decided isNewBest; saveBestScore re-checks against storage, so a lower round
+    // never overwrites the best (even one saved from another tab).
+    if (status === 'gameOver' && game.state.isNewBest) saveBestScore(game.state.bestScore);
     if (status === 'gameOver') resultsScreen.show(game.state);
     else resultsScreen.hide();
     hud.setPausable(status === 'playing');
