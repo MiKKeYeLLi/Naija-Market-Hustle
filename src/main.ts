@@ -9,9 +9,10 @@ import { ItemMeshSync } from './render/itemSync';
 import { animateItemModel, createBasketModel, createItemModel } from './render/models';
 import { createScene } from './render/scene';
 import { PhaseBanner } from './ui/banner';
-import { Feedback } from './ui/feedback';
+import { Feedback, isPenalty } from './ui/feedback';
 import { Hud } from './ui/hud';
 import { PauseScreen, ResultsScreen, StartScreen } from './ui/screens';
+import { SoundBoard } from './audio';
 import './styles.css';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
@@ -67,12 +68,19 @@ hud.show();
 // Fit the play area below the HUD strip, tracking its real height (safe areas, font scaling).
 new ResizeObserver(() => view.setTopInset(hud.height)).observe(hud.element);
 
+// Synthesised sounds. Nothing is created or played until the first tap, click or key press.
+const sound = new SoundBoard({ enabled: loadSoundOn() });
+sound.listenForUnlock(window);
+
 // The round only starts from this button: the timer stays at 90 in `ready` until it is pressed.
 const startScreen = new StartScreen(uiRoot, {
-  soundOn: loadSoundOn(),
+  soundOn: sound.isEnabled,
   onStart: () => game.start(),
-  // NMH-22 plays (or silences) the sounds; the choice is remembered from here.
-  onSoundChange: (on) => saveSoundOn(on),
+  // Takes effect at once and is remembered for next time.
+  onSoundChange: (on) => {
+    sound.setEnabled(on);
+    saveSoundOn(on);
+  },
 });
 
 // Shown from the gameOver status change, which the state machine fires exactly once per round.
@@ -105,6 +113,9 @@ const game = new Game({
   },
   onFeedback: (event) => {
     feedback.handle(event);
+    // A coin ding for a fresh catch; the buzz for anything that cost a life; silence for a missed hazard.
+    if (isPenalty(event)) sound.play('penalty');
+    else if (event.type === 'catch') sound.play('catch');
     if (event.type === 'catch' && !reducedMotion()) {
       particles.burst(event.item.x, BASKET_MOUTH.centerY, ITEM_DEFINITIONS[event.item.type].colorKey);
     }
@@ -120,8 +131,12 @@ const game = new Game({
     // Game has already decided isNewBest; saveBestScore re-checks against storage, so a lower round
     // never overwrites the best (even one saved from another tab).
     if (status === 'gameOver' && game.state.isNewBest) saveBestScore(game.state.bestScore);
-    if (status === 'gameOver') resultsScreen.show(game.state);
-    else resultsScreen.hide();
+    if (status === 'gameOver') {
+      sound.play('gameOver');
+      resultsScreen.show(game.state);
+    } else {
+      resultsScreen.hide();
+    }
     hud.setPausable(status === 'playing');
   },
   render: (state, dt) => {
