@@ -18,6 +18,7 @@ import { Hud } from './ui/hud';
 import { PerfOverlay } from './ui/perf';
 import { ProfileCard } from './ui/profile';
 import { PauseScreen, ResultsScreen, StartScreen } from './ui/screens';
+import musicUrl from './assets/music-inspire.mp3';
 import { SoundBoard } from './audio';
 import { StartNgClient, connectPageTransport, isOnStartNg, signInUrl, type WhoAmI } from './startng';
 
@@ -80,7 +81,7 @@ export function startGame(): void {
   new ResizeObserver(() => view.setTopInset(hud.height)).observe(hud.element);
 
   // Synthesised sounds. Nothing is created or played until the first tap, click or key press.
-  const sound = new SoundBoard({ enabled: loadSoundOn() });
+  const sound = new SoundBoard({ enabled: loadSoundOn(), musicSrc: musicUrl });
   sound.listenForUnlock(window);
 
   // The round only starts from this button: the timer stays at 90 in `ready` until it is pressed.
@@ -134,6 +135,9 @@ export function startGame(): void {
     onPhaseChange: (phase) => banner.show(phase),
     onStatusChange: (status, previous) => {
       if (status === 'playing' && previous === 'ready') perf?.resetRound();
+      // Music plays during rounds: from the top for a new round, picking up where it was after a
+      // pause, and silent on the pause and results screens.
+      sound.setMusicPlaying(status === 'playing', status === 'playing' && previous === 'ready');
       // A banner never lingers over an overlay, the results or a fresh round.
       if (status !== 'playing') banner.hide();
       if (status === 'ready') startScreen.show(game.state.bestScore);

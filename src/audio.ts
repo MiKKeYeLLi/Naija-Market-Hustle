@@ -1,4 +1,5 @@
-// Catch, penalty and game-over sounds (NMH-22), synthesised with Web Audio: no files to load.
+// Catch, penalty and game-over sounds (NMH-22), synthesised with Web Audio, plus an optional looping
+// background track that plays during rounds.
 //
 // Browsers only allow audio after a user gesture, so the AudioContext is not even created until the
 // first tap, click or key press (unlock). Before that, and whenever sound is off, play() does nothing.
@@ -10,9 +11,16 @@ export type SoundName = 'catch' | 'penalty' | 'gameOver';
 export type SoundContext = Pick<
   AudioContext,
   'currentTime' | 'destination' | 'state' | 'resume' | 'createOscillator' | 'createGain' | 'createBiquadFilter'
->;
+> &
+  Partial<Pick<AudioContext, 'createMediaElementSource'>>;
+
+// The background track's <audio> element, or a stand-in in tests.
+export type MusicElement = Pick<HTMLAudioElement, 'play' | 'pause' | 'loop' | 'preload' | 'currentTime' | 'volume'>;
 
 const MASTER_VOLUME = 0.3;
+// Background music sits under the effects. Routed through Web Audio where possible, because iOS
+// ignores HTMLMediaElement.volume.
+export const MUSIC_VOLUME = 0.22;
 // Events that unlock audio. Capture phase on window, so they count wherever the tap lands.
 const UNLOCK_EVENTS = ['pointerdown', 'keydown', 'touchend'] as const;
 
@@ -29,6 +37,15 @@ function browserContext(): SoundContext | null {
 export interface SoundBoardOptions {
   enabled: boolean;
   createContext?: () => SoundContext | null;
+  // URL of a looping background track. Nothing is requested until the first user gesture.
+  musicSrc?: string;
+  createMusicElement?: (src: string) => MusicElement;
+}
+
+function browserMusicElement(src: string): MusicElement {
+  const audio = new Audio();
+  audio.src = src;
+  return audio;
 }
 
 export class SoundBoard {
@@ -38,10 +55,21 @@ export class SoundBoard {
   private enabled: boolean;
   private unlockTarget: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> | null = null;
   private readonly createContext: () => SoundContext | null;
+  private readonly musicSrc: string | undefined;
+  private readonly createMusicElement: (src: string) => MusicElement;
+  private music: MusicElement | null = null;
+  // Whether the game wants music right now (a round is being played).
+  private musicWanted = false;
 
   constructor(options: SoundBoardOptions) {
     this.enabled = options.enabled;
     this.createContext = options.createContext ?? browserContext;
+    this.musicSrc = options.musicSrc;
+    this.createMusicElement = options.createMusicElement ?? browserMusicElement;
+  }
+
+  get isMusicPlaying(): boolean {
+    return !!this.music && this.enabled && this.musicWanted;
   }
 
   get isUnlocked(): boolean {
@@ -52,8 +80,18 @@ export class SoundBoard {
     return this.enabled;
   }
 
+  // The sound toggle: silences effects and music alike.
   setEnabled(on: boolean): void {
     this.enabled = on;
+    this.syncMusic();
+  }
+
+  // Music follows the round: on while playing, off when paused or over. `fromStart` rewinds the track
+  // for a fresh round.
+  setMusicPlaying(wanted: boolean, fromStart = false): void {
+    this.musicWanted = wanted;
+    if (fromStart && this.music) this.music.currentTime = 0;
+    this.syncMusic();
   }
 
   // Waits for the first gesture on `target` (window), then unlocks once and stops listening.
@@ -69,11 +107,48 @@ export class SoundBoard {
     if (this.unlocked) return;
     this.unlocked = true;
     this.context = this.createContext();
-    if (!this.context) return;
-    this.master = this.context.createGain();
-    this.master.gain.value = MASTER_VOLUME;
-    this.master.connect(this.context.destination);
-    if (this.context.state === 'suspended') void this.context.resume().catch(() => {});
+    if (this.context) {
+      this.master = this.context.createGain();
+      this.master.gain.value = MASTER_VOLUME;
+      this.master.connect(this.context.destination);
+      if (this.context.state === 'suspended') void this.context.resume().catch(() => {});
+    }
+    // Music works without Web Audio too, through the plain <audio> element.
+    this.setUpMusic();
+  }
+
+  // Creates the music element inside the unlocking gesture, so its first play() is allowed.
+  private setUpMusic(): void {
+    if (!this.musicSrc) return;
+    try {
+      const music = this.createMusicElement(this.musicSrc);
+      music.loop = true;
+      music.preload = 'auto';
+      this.music = music;
+      const context = this.context;
+      if (context?.createMediaElementSource) {
+        const source = context.createMediaElementSource(music as HTMLMediaElement);
+        const gain = context.createGain();
+        gain.gain.value = MUSIC_VOLUME;
+        source.connect(gain);
+        gain.connect(context.destination);
+      } else {
+        music.volume = MUSIC_VOLUME;
+      }
+    } catch {
+      // Music is a nicety: if it can't be set up the game plays on with effects only.
+      if (this.music) this.music.volume = MUSIC_VOLUME;
+    }
+    this.syncMusic();
+  }
+
+  private syncMusic(): void {
+    if (!this.music) return;
+    if (this.enabled && this.musicWanted) {
+      void this.music.play()?.catch(() => {});
+    } else {
+      this.music.pause();
+    }
   }
 
   play(name: SoundName): boolean {
@@ -89,6 +164,8 @@ export class SoundBoard {
 
   dispose(): void {
     this.stopListening();
+    this.musicWanted = false;
+    this.music?.pause();
   }
 
   private onGesture = (): void => {
